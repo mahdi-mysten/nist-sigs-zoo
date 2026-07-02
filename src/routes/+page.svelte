@@ -7,6 +7,7 @@
 	import FilterPanel from '$lib/components/FilterPanel.svelte';
 	import SchemeTable from '$lib/components/SchemeTable.svelte';
 	import ScatterPlot from '$lib/components/ScatterPlot.svelte';
+	import SuiLens from '$lib/components/SuiLens.svelte';
 	import { processYamlSchemes } from '$lib/data';
 	import { getFilterStore, buildUrlParams, createFilterStore } from '$lib/filterStore';
 	import { roundStore, type Round } from '$lib/roundStore';
@@ -84,7 +85,8 @@
 			Post-Quantum Signature Schemes
 		</h1>
 		<p class="mt-2 text-sm text-pqs-steel dark:text-pqs-bluegray">
-			Comparing NIST on-ramp candidates and standardized schemes.
+			Comparing NIST on-ramp candidates and standardized schemes, curated for Sui's PQ-authenticator
+			decision: each scheme is shown at its lowest NIST security level only.
 			Click column headers to sort. Use the filters to narrow down by category, security level, or size constraints.
 		</p>
 		<p class="mt-1.5 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
@@ -99,6 +101,11 @@
 				Schemes may have been updated since; consult the individual scheme websites for current specifications.
 			{/if}
 		</p>
+	</div>
+
+	<!-- Sui on-chain lens: our measured numbers, independent of the round selector -->
+	<div class="mb-8">
+		<SuiLens />
 	</div>
 
 	<div class="flex gap-8">

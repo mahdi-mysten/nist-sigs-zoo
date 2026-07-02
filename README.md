@@ -1,10 +1,28 @@
-# NIST PQC Signatures Zoo
+# Mysten PQ Signatures Zoo
 
-Interactive comparison of post-quantum signature schemes submitted to the [NIST Additional Signatures on-ramp](https://csrc.nist.gov/projects/pqc-dig-sig/).
+A Mysten Labs fork of the [PQShield NIST Signatures Zoo](https://github.com/PQShield/nist-sigs-zoo)
+(Thom Wiggers) — upstream data CC-BY-4.0.
 
-Data reflects scheme specifications as per the last version that we could find. Schemes may have been updated since; consult the individual scheme websites for current specifications. If you do find more up-to-date information, please let us know by creating an issue!
+The fork narrows the general-purpose zoo to the question that matters to us: **which
+post-quantum signature scheme should back a Sui PQ authenticator?** Concretely:
 
-Parameter sizes and performance timings (up to and including round 2) are copied from the individual scheme submission documents — be aware of potential errors. From round 3 on we do our own benchmarking.
+- **Signatures only.** The upstream KEM comparison is removed.
+- **Curated scheme list.** Only schemes relevant to the decision are kept:
+  - FIPS / standards track: ML-DSA, SLH-DSA, Falcon (FN-DSA)
+  - NIST on-ramp Round 3 survivors (NIST IR 8610): HAWK, SQIsign, FAEST, MQOM,
+    SDitH, UOV, MAYO, QR-UOV, SNOVA
+  - Classical baselines: EdDSA, ECDSA
+- **Lowest security level only.** For each scheme the data layer keeps just the
+  parameter sets at that scheme's lowest NIST level (all genuine variants at that
+  level survive — e.g. SLH-DSA s/f × SHA2/SHAKE). See `LOWEST_LEVEL_ONLY` in
+  `src/lib/data.ts` to restore the full lists.
+- **Sui on-chain lens.** A hero section on the main page compares on-chain footprint
+  (pk+sig) and verification time using **our own measured benchmarks** from the
+  sui-pq repo's pq-bench harness (median of 1000 verify iterations), with a
+  Mac-M2-Max / Sui-validator-server host toggle. Zoo reference rows (i7-12650H,
+  rdtsc, upstream's benchmark) are shown for scale only and never enter the
+  vs-Ed25519 ratios.
+
 
 ## Development
 
@@ -23,17 +41,17 @@ npm run test        # unit tests (Vitest) — fast, no browser required
 npm run test:e2e    # E2E tests (Playwright) — builds site then runs in headless Chromium
 ```
 
-Unit tests in `src/lib/__tests__/` cover data processing and URL-encoding logic.
-E2E tests in `e2e/` exercise the main page and advanced graph page in a real browser.
-
-## Contributing
-
-Suggestions and improvements welcome — open an issue or pull request.
+Unit tests in `src/lib/__tests__/` cover data processing (including the
+lowest-level curation and pq-bench CSV parsing) and URL-encoding logic.
+E2E tests in `e2e/` exercise the main page (with the Sui lens) and the advanced
+graph page in a real browser.
 
 ## Stack
 
-SvelteKit · Svelte 5 · TypeScript · Tailwind CSS v4 · Observable Plot
+SvelteKit · Svelte 5 · TypeScript · Tailwind CSS v4 · Vega-Lite
 
 ## License
 
-Data: [CC BY-SA 4.0](LICENSE.md)
+Data: [CC BY-SA 4.0](LICENSE.md). Upstream scheme data and benchmark data by
+Thom Wiggers / PQShield ([nist-sigs-zoo](https://github.com/PQShield/nist-sigs-zoo),
+CC-BY-4.0).

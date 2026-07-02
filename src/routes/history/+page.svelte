@@ -19,7 +19,7 @@
 </script>
 
 <svelte:head>
-	<title>History — NIST Signatures Zoo</title>
+	<title>History — Mysten PQ Signatures Zoo</title>
 </svelte:head>
 
 <div class="mx-auto max-w-screen-md px-6 py-10">

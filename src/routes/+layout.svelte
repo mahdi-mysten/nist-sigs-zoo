@@ -15,7 +15,6 @@
 	const themeLabel = $derived(`Theme: ${$themeStore} — click to cycle`);
 
 	const isHome = $derived($page.route.id === '/');
-	const isKems = $derived($page.route.id === '/kems');
 
 	let menuOpen = $state(false);
 
@@ -37,9 +36,9 @@
 	<header class="bg-pqs-midnight shadow-md">
 		<nav class="mx-auto flex max-w-screen-2xl items-center gap-6 px-6 py-4">
 			<a href="{base}/" class="flex items-center gap-2 text-white" onclick={closeMenu}>
-				<span class="font-heading text-xl font-bold tracking-tight">PQShield</span>
+				<span class="font-heading text-xl font-bold tracking-tight">Mysten</span>
 				<span class="rounded bg-pqs-apricot px-2 py-0.5 font-heading text-xs font-semibold text-pqs-midnight">
-					NIST Signatures Zoo
+					PQ Signatures Zoo
 				</span>
 			</a>
 
@@ -73,15 +72,6 @@
 						</button>
 					</div>
 				{/if}
-				{#if isKems}
-					<a href="{base}/" class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
-						Signatures
-					</a>
-				{:else}
-					<a href="{base}/kems/" class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
-						KEMs
-					</a>
-				{/if}
 				<a href="{base}/history/" class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
 					History
 				</a>
@@ -91,7 +81,7 @@
 					rel="noopener noreferrer"
 					class="text-pqs-bluegray hover:text-pqs-apricot transition-colors"
 				>
-					Contribute ↗
+					Upstream ↗
 				</a>
 				<button
 					onclick={() => themeStore.toggle()}
@@ -167,15 +157,6 @@
 					</div>
 				{/if}
 				<div class="flex flex-col gap-3">
-					{#if isKems}
-						<a href="{base}/" onclick={closeMenu} class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
-							Signatures
-						</a>
-					{:else}
-						<a href="{base}/kems/" onclick={closeMenu} class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
-							KEMs
-						</a>
-					{/if}
 					<a href="{base}/history/" onclick={closeMenu} class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
 						History
 					</a>
@@ -186,7 +167,7 @@
 						onclick={closeMenu}
 						class="text-pqs-bluegray hover:text-pqs-apricot transition-colors"
 					>
-						Contribute ↗
+						Upstream ↗
 					</a>
 				</div>
 			</div>
@@ -200,18 +181,18 @@
 	<footer class="mt-8 border-t border-pqs-bluegray/30 bg-pqs-midnight px-6 py-6 text-xs text-pqs-bluegray dark:border-pqs-steel">
 		<div class="mx-auto max-w-screen-2xl space-y-1">
 			<p>
-        Built by Thom Wiggers / PQShield.
-				Data licensed under
-				<a href="{base}/LICENSE.md" class="text-pqs-apricot hover:underline">CC BY-SA 4.0</a>.
-        Most recent scheme data is dated {lastUpdated}.
-			</p>
-			<p>
+				A Mysten Labs fork of the PQShield NIST Signatures Zoo (Thom Wiggers) &mdash; upstream data CC-BY-4.0,
 				<a
-					href="https://github.com/pqshield/nist-sigs-zoo"
+					href="https://github.com/PQShield/nist-sigs-zoo"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="text-pqs-apricot hover:underline">GitHub</a
-				>
+					class="text-pqs-apricot hover:underline">https://github.com/PQShield/nist-sigs-zoo</a
+				>.
+			</p>
+			<p>
+				Data licensed under
+				<a href="{base}/LICENSE.md" class="text-pqs-apricot hover:underline">CC BY-SA 4.0</a>.
+				Most recent scheme data is dated {lastUpdated}.
 			</p>
 		</div>
 	</footer>

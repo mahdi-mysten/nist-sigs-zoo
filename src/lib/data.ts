@@ -1,5 +1,5 @@
 import { CPUSPEED } from './constants';
-import type { DataRanges, NistLevel, ParameterSet, Scheme, SchemeYaml } from './types';
+import type { DataRanges, NistLevel, ParameterSet, ParameterSetYaml, Scheme, SchemeYaml } from './types';
 
 function parseCsv(text: string): Record<string, string>[] {
 	const lines = text.trim().split('\n');
@@ -148,6 +148,23 @@ export function parseParameterSets(
 	return { rows, ranges };
 }
 
+// Sui lens curation: the PQ-authenticator decision is made at each scheme's floor
+// security level — the sets a chain would deploy first — so higher levels only add
+// spread without changing the ranking. Flip to false to restore full parameter lists.
+export const LOWEST_LEVEL_ONLY = true;
+
+const LEVEL_ORDER: Record<string, number> = {
+	'Pre-Quantum': 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5,
+};
+
+// Keep every set at the scheme's lowest level: genuine variants there (SLH-DSA s/f
+// and SHA2/SHAKE, UOV pkc/classic, …) are distinct trade-offs, so the cut is by
+// level, never by name.
+function lowestLevelSets(sets: ParameterSetYaml[]): ParameterSetYaml[] {
+	const lowest = Math.min(...sets.map((ps) => LEVEL_ORDER[String(ps.level)] ?? 99));
+	return sets.filter((ps) => (LEVEL_ORDER[String(ps.level)] ?? 99) === lowest);
+}
+
 export function processYamlSchemes(
 	schemeData: SchemeYaml[],
 	tagFilter?: string,
@@ -196,7 +213,11 @@ export function processYamlSchemes(
 		};
 		schemes.push(scheme);
 
-		for (const ps of latest.parametersets) {
+		const parametersets = LOWEST_LEVEL_ONLY
+			? lowestLevelSets(latest.parametersets)
+			: latest.parametersets;
+
+		for (const ps of parametersets) {
 			const level: NistLevel =
 				ps.level === 'Pre-Quantum' ? 'Pre-Quantum' : (ps.level as 1 | 2 | 3 | 4 | 5);
 

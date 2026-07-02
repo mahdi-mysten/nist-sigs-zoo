@@ -5,7 +5,7 @@
 /* ---------- benchmark runner ----------
  *
  * Signature op contract: keygen / sign / verify. The cycle counter, stats and
- * BENCH_TIME_OP macro are shared with bench-kem/ via harness_common.h. */
+ * BENCH_TIME_OP macro live in ../bench-common/harness_common.h. */
 
 #define BENCH_FMT "%-26s  %6d  %14" PRIu64 "  %10.1f  %14" PRIu64 "  %10.1f  %14" PRIu64 "  %10.1f\n"
 #define BENCH_HDR "%-26s  %6s  %14s  %10s  %14s  %10s  %14s  %10s\n"

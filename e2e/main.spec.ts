@@ -19,7 +19,8 @@ test.describe('Main page', () => {
 
 	test('scatter plot section heading', async ({ page }) => {
 		await page.goto('/');
-		await expect(page.locator('section h2').first()).toContainText('pk size vs. sig size');
+		// Not .first(): the Sui lens h2 precedes the zoo scatter heading
+		await expect(page.locator('section h2', { hasText: 'pk size vs. sig size' })).toBeVisible();
 	});
 
 	test('"Advanced graph →" link is present and points to /advanced/', async ({ page }) => {
@@ -40,7 +41,8 @@ test.describe('Main page', () => {
 
 	test('scheme table is present', async ({ page }) => {
 		await page.goto('/');
-		await expect(page.locator('table')).toBeVisible();
+		// Two tables on the page now (Sui lens + zoo table); assert both render
+		await expect(page.locator('table')).toHaveCount(2);
 	});
 
 	test('round selector shows Latest/Round 3/Round 2/Round 1', async ({ page }) => {
@@ -48,5 +50,44 @@ test.describe('Main page', () => {
 		for (const label of ['Latest', 'Round 3', 'Round 2', 'Round 1']) {
 			await expect(page.getByRole('button', { name: label }).first()).toBeVisible();
 		}
+	});
+});
+
+test.describe('Sui on-chain lens', () => {
+	test('lens section renders with host toggle', async ({ page }) => {
+		await page.goto('/');
+		await expect(page.locator('h2', { hasText: 'Sui on-chain lens' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Mac M2 Max' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Sui-validator server' })).toBeVisible();
+	});
+
+	test('measured rows and zoo reference marker are shown', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		await expect(lens.getByText('Ed25519', { exact: true })).toBeVisible();
+		await expect(lens.getByText('ML-DSA-44', { exact: true })).toBeVisible();
+		await expect(lens.getByText('zoo reference data (i7-12650H, rdtsc)')).toBeVisible();
+	});
+
+	test('lens Vega figure renders alongside the zoo scatter', async ({ page }) => {
+		await page.goto('/');
+		// Two charts on the page now (lens + zoo scatter); wait for both to draw
+		await page.waitForFunction(
+			() =>
+				[...document.querySelectorAll('svg')].filter((s) => s.querySelector('g')).length >= 2,
+			{ timeout: 15_000 }
+		);
+	});
+
+	test('server toggle shows pending state until a server run is imported', async ({ page }) => {
+		await page.goto('/');
+		// Hydration first, so the toggle click hits the Svelte handler
+		await page.waitForLoadState('networkidle');
+		await page.getByRole('button', { name: 'Sui-validator server' }).click();
+		await expect(page.getByText('Server run not yet imported')).toBeVisible();
+		await expect(page.getByText('pending').first()).toBeVisible();
+		// Toggling back restores the measured verify column
+		await page.getByRole('button', { name: 'Mac M2 Max' }).click();
+		await expect(page.getByText('Server run not yet imported')).toBeHidden();
 	});
 });

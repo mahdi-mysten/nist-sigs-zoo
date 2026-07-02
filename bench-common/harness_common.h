@@ -1,10 +1,9 @@
 #pragma once
 /*
- * Shared harness machinery for bench/ (signatures) and bench-kem/ (KEMs):
- * the cycle counter, the median/stat helpers, and the per-operation timing
- * macro. The two harnesses differ only in their op contract (keygen/sign/verify
- * vs keygen/enc/dec) and output columns, which live in each `harness.h`; the
- * timing/counter logic below is identical and lives here so it stays in sync.
+ * Shared harness machinery for bench/ (signatures): the cycle counter, the
+ * median/stat helpers, and the per-operation timing macro. Kept separate from
+ * bench/harness.h (op contract + output columns) so future harnesses can reuse
+ * the timing/counter logic unchanged.
  */
 #include <inttypes.h>
 #include <stdint.h>
