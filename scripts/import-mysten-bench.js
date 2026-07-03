@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// Import a pq-bench results CSV (sui-pq repo, sui/benchmark) into data/mysten/<host>.csv.
+// Import a pq-bench results CSV (fastcrypto fork, pq-bench/) into data/mysten/<host>.csv.
 //
 // Usage: npm run import-bench -- <results.csv> <mac-m2-max|server>
 //
-// Server flow: run sui-pq's sui/benchmark/run-on-server.sh on the server, scp the
+// Server flow: run the fastcrypto fork's pq-bench/run-on-server.sh on the server, scp the
 // resulting results-<label>.csv here, then import it with host "server".
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Mirrors MYSTEN_BENCH_HEADER in src/lib/mystenBench.ts and the header the sui-pq
+// Mirrors MYSTEN_BENCH_HEADER in src/lib/mystenBench.ts and the header the pq-bench
 // harness emits — all three must agree byte-for-byte or the site parser rejects the file.
 const EXPECTED_HEADER =
 	'name,family,security_level,std,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519';
@@ -18,7 +18,7 @@ const EXPECTED_HEADER =
 const HOSTS = ['mac-m2-max', 'server'];
 
 const USAGE = `usage: npm run import-bench -- <results.csv> <host>
-  <results.csv>  CSV emitted by the sui-pq benchmark harness
+  <results.csv>  CSV emitted by the pq-bench harness
   <host>         one of: ${HOSTS.join(', ')}`;
 
 function fail(msg) {

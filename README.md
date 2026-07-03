@@ -18,7 +18,7 @@ post-quantum signature scheme should back a Sui PQ authenticator?** Concretely:
   `src/lib/data.ts` to restore the full lists.
 - **Sui on-chain lens.** A hero section on the main page compares on-chain footprint
   (pk+sig) and verification time using **our own measured benchmarks** from the
-  sui-pq repo's pq-bench harness (median of 1000 verify iterations), with a
+  `pq-bench` crate in our fastcrypto fork (branch `pq-schemes`; median of 1000 verify iterations), with a
   Mac-M2-Max / Sui-validator-server host toggle. Zoo reference rows (i7-12650H,
   rdtsc, upstream's benchmark) are shown for scale only and never enter the
   vs-Ed25519 ratios.

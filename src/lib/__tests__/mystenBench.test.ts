@@ -27,7 +27,7 @@ describe('parseMystenBenchCsv', () => {
 	});
 
 	it('empty verify_ns parses to null (Rust rows without a C keygen)', () => {
-		const csv = `${MYSTEN_BENCH_HEADER}\nFalcon-512 (readable Rust),Lattice,1,FIPS 206 (draft),897,666,,,,41209,,1000,1.0\n`;
+		const csv = `${MYSTEN_BENCH_HEADER}\nFalcon-512,Lattice,1,FIPS 206 (draft),897,666,,,,41209,,1000,1.0\n`;
 		const [row] = parseMystenBenchCsv(csv);
 		expect(row.skLen).toBeNull();
 		expect(row.keygenNs).toBeNull();

@@ -19,10 +19,16 @@
 
 	let host = $state<MystenHost>('mac-m2-max');
 
+	// PQClean C rides along in the CSV as the reference implementation of the same
+	// verifier: identical math, identical signature bytes. It gets no row of its
+	// own — its verify time renders in parentheses inside the Falcon-512 row.
+	const PQCLEAN_ROW = 'Falcon-512 (PQClean C)';
+	const FALCON_ROW = 'Falcon-512';
+
 	// The Mac run pins the measured row set; the toggle only swaps which host's run
 	// feeds the verify/ratio columns. With server.csv still a placeholder those cells
 	// render as "pending" while sizes (host-independent) stay visible.
-	const measuredRows = mystenBench['mac-m2-max'];
+	const measuredRows = mystenBench['mac-m2-max'].filter((r) => r.name !== PQCLEAN_ROW);
 
 	const hostRows = $derived(mystenBench[host]);
 	const hostPending = $derived(hostRows.length === 0);
@@ -145,6 +151,14 @@
 						{:else}
 							<td class="px-3 py-1.5 text-right tabular-nums">
 								{hostRow?.verifyNs != null ? fmtTime(hostRow.verifyNs / 1000) : '—'}
+								{#if row.name === FALCON_ROW && hostByName.get(PQCLEAN_ROW)?.verifyNs != null}
+									<span
+										class="text-pqs-bluegray dark:text-pqs-steel"
+										title="Same verifier math and identical signature bytes; PQClean is the deliberately portable reference C, ours is hand-optimized Rust with precomputed Montgomery-NTT tables."
+									>
+										(PQClean C: {fmtTime(hostByName.get(PQCLEAN_ROW)!.verifyNs / 1000)})
+									</span>
+								{/if}
 							</td>
 							<td class="px-3 py-1.5 text-right tabular-nums">
 								{ratio != null ? fmtRatio(ratio) : '—'}
@@ -181,6 +195,12 @@
 	<p class="mt-2 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 		Measured: pq-bench, median of 1000 verify iterations — {hostMeta.machine}.
 		Reference: NIST Signatures Zoo benchmark data (Thom Wiggers / PQShield, CC-BY-4.0) — i7-12650H, rdtsc.
+	</p>
+	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
+		Falcon-512 shows two numbers for one verifier: both run the same math over the identical
+		signature bytes (interop-checked every run). Ours is hand-optimized Rust with precomputed
+		Montgomery-NTT tables; the parenthetical is PQClean's reference C, whose "clean" variant is
+		deliberately portable and unoptimized — the gap is engineering, not algorithm.
 	</p>
 
 	<div class="mt-4">
