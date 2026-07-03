@@ -51,7 +51,7 @@
 			Post-Quantum Signature Schemes
 		</h1>
 		<p class="mt-2 text-sm text-pqs-steel dark:text-pqs-bluegray">
-			Comparing NIST on-ramp candidates and standardized schemes, curated for Sui's PQ-authenticator
+			Comparing NIST standardized and on-ramp schemes, curated for Sui's PQ-authenticator
 			decision: each scheme is shown at its lowest NIST security level, and only levels 1 and 2 are listed.
 			Click column headers to sort. Use the filters to narrow down by category, security level, or size constraints.
 		</p>

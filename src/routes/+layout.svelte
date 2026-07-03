@@ -2,6 +2,7 @@
 	import './layout.css';
 	import { onMount } from 'svelte';
 	import { base } from '$app/paths';
+	import { SUI_IMPACT } from '$lib/flags';
 	import { themeStore } from '$lib/themeStore';
 	import { lastUpdated } from '$lib/schemeData';
 
@@ -35,6 +36,11 @@
 
 			<!-- Desktop nav -->
 			<div class="ml-auto hidden items-center gap-5 font-heading text-sm md:flex">
+				{#if SUI_IMPACT}
+					<a href="{base}/impact/" class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
+						Sui impact
+					</a>
+				{/if}
 				<a href="{base}/history/" class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
 					History
 				</a>
@@ -89,6 +95,11 @@
 		{#if menuOpen}
 			<div class="border-t border-pqs-steel/30 px-6 pb-4 pt-3 font-heading text-sm md:hidden">
 				<div class="flex flex-col gap-3">
+					{#if SUI_IMPACT}
+						<a href="{base}/impact/" onclick={closeMenu} class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
+							Sui impact
+						</a>
+					{/if}
 					<a href="{base}/history/" onclick={closeMenu} class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
 						History
 					</a>

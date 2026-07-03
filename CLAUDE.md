@@ -44,6 +44,7 @@ Vitest with node environment. Tests pure TypeScript functions only — no Svelte
 - `data.test.ts` — `processYamlSchemes()`: tag filtering, version selection, field computation, flag propagation, lowest-level curation
 - `mystenBench.test.ts` — `parseMystenBenchCsv()` / `computeVerifyRatios()`: pq-bench CSV parsing, pending state, intra-host ratios
 - `filterStore.test.ts` — `buildUrlParams()`: URL encoding of filter state
+- `impactModel.test.ts` — `computeImpact()` bound formulas, min/argmin switching, binding crossovers, presets, finality delta, card buckets
 
 **Adding unit tests:** create `src/lib/__tests__/<module>.test.ts`. Import directly from `$lib/...`.
 Pass mock `SchemeYaml[]` objects to `processYamlSchemes` — no fixture files needed.
@@ -55,6 +56,7 @@ Playwright against a built static site. The playwright config runs `npm run buil
 
 - `main.spec.ts` — main page: heading, Sui lens (table, host toggle, pending state), Vega chart render, advanced link, filter levels, traffic-light shading, table
 - `advanced.spec.ts` — advanced page: axis controls, heading updates, URL encoding/restoration, filter panel
+- `impact.spec.ts` — impact-model section: renders with cards, adoption slider moves Effective TPS, preset switch moves the bandwidth bound, charts draw
 
 **Adding E2E tests:** add to `e2e/main.spec.ts` or `e2e/advanced.spec.ts`, or create a new `e2e/<feature>.spec.ts`.
 Use `page.waitForFunction(() => [...document.querySelectorAll('svg')].some(s => s.querySelector('g')), { timeout: 15_000 })` to wait for a Vega chart to render before asserting on it.
@@ -170,6 +172,8 @@ src/
 │   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
 │   ├── mystenBench.ts    # pq-bench CSV parser + intra-host verify ratios (pure)
 │   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench[host]
+│   ├── impactModel.ts    # min-of-three-bounds chain-impact model + presets (pure, unit-tested)
+│   ├── suiHostStore.ts   # selected bench host, shared by SuiLens + SuiImpact
 │   ├── filterStore.ts    # Svelte writable store + derived filteredRows + URL codec
 │   ├── schemeData.ts     # import.meta.glob loader → allSchemeData: SchemeYaml[]
 │   ├── themeStore.ts     # dark/light/system theme store → localStorage
@@ -181,7 +185,10 @@ src/
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
 │       ├── SuiLens.svelte        # Sui on-chain lens: host toggle, measured+reference table (mirrors SchemeTable columns), note
-│       └── SuiLensPlot.svelte    # Vega-Lite pk+sig vs verify-µs scatter (points prop)
+│       ├── SuiLensPlot.svelte    # Vega-Lite pk+sig vs verify-µs scatter (points prop)
+│       ├── SuiImpact.svelte      # "What PQ signatures do to the chain": scheme/adoption/preset controls, cards, prose
+│       ├── SuiImpactBoundsPlot.svelte # Vega-Lite bars: the three bounds vs the Ed25519-only ghost bars (log x)
+│       └── SuiImpactSweepPlot.svelte  # Vega-Lite line: effective TPS vs adoption, colored by binding bound
 └── routes/
     ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
     ├── +page.ts          # load: processYamlSchemes('round-3', {useLatestVersion:true}), createFilterStore
@@ -229,6 +236,19 @@ lens extras — host-measured Verify (median) and vs Ed25519 — as the last col
 - Zoo reference rows (HAWK-512, MAYO-one, UOV-Is-pkc, SQIsign-I, FAEST-128s) are
   resolved from the curated YAML via `ZOO_REFERENCE_SETS`; their timings are
   upstream's i7-12650H rdtsc bench, so they are display-only and never enter ratios.
+- The host toggle writes `suiHostStore.ts`, which the impact section below also reads.
+
+### Chain-impact model
+
+`SuiImpact.svelte` sits directly below the lens; the math lives in
+`src/lib/impactModel.ts` (pure, unit-tested). It is a MODEL, not a measurement:
+effective TPS = min(verify-CPU bound, NIC-bandwidth bound, consensus+execution
+ceiling) for one PQ scheme at an adoption fraction mixed with Ed25519. Verify
+medians come from the selected host's CSV (never cross-host); envelope bytes are
+1 + sig + pk. Presets: blog testbed (blog.sui.io/sui-performance-update),
+docs-minimum validator (1 Gbps NIC), conservative ceiling (100k TPS). Known
+simplifications are listed in the module header (no Ed25519 batch verification,
+flat ceiling, capacity-only / no queueing).
 
 ### Filter Store
 

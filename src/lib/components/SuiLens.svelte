@@ -3,7 +3,8 @@
 	import { fmt, fmtCycles, fmtTime } from '$lib/format';
 	import { allSchemeData } from '$lib/schemeData';
 	import { computeVerifyRatios } from '$lib/mystenBench';
-	import { mystenBench, MYSTEN_HOSTS, type MystenHost } from '$lib/mystenBenchData';
+	import { mystenBench, MYSTEN_HOSTS } from '$lib/mystenBenchData';
+	import { suiHost } from '$lib/suiHostStore';
 	import { sizeCellClass, signCellClass, verifyCellClass } from '$lib/trafficLight';
 	import type { Scheme } from '$lib/types';
 	import SecurityBadge from './SecurityBadge.svelte';
@@ -21,7 +22,9 @@
 		{ scheme: 'FAEST', parameterset: '128s' },
 	];
 
-	let host = $state<MystenHost>('mac-m2-max');
+	// Shared with the impact-model section below, so its scenarios always use
+	// the same host's verify medians as the columns shown here.
+	const host = $derived($suiHost);
 
 	// PQClean C rides along in the CSV as the reference implementation of the same
 	// verifier: identical math, identical signature bytes. It gets no row of its
@@ -127,7 +130,7 @@
 		<div class="flex rounded border border-pqs-ashgray dark:border-pqs-steel overflow-hidden shrink-0">
 			{#each MYSTEN_HOSTS as h}
 				<button
-					onclick={() => (host = h.id)}
+					onclick={() => suiHost.set(h.id)}
 					class="px-3 py-1.5 text-xs font-heading transition-colors {host === h.id
 						? 'bg-pqs-apricot text-pqs-midnight font-semibold'
 						: 'bg-white text-pqs-bluegray hover:text-pqs-midnight dark:bg-pqs-midnight-mid dark:text-pqs-steel dark:hover:text-white'}"
@@ -327,7 +330,7 @@
 		Falcon-512 shows two numbers for one verifier: both run the same math over the identical
 		signature bytes (interop-checked every run). Ours is hand-optimized Rust with precomputed
 		Montgomery-NTT tables; the parenthetical is PQClean's reference C, whose "clean" variant is
-		deliberately portable and unoptimized — the gap is engineering, not algorithm.
+		deliberately portable and unoptimized, the gap is engineering, not algorithm.
 	</p>
 
 	<div class="mt-4">

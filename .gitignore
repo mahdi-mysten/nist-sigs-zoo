@@ -27,3 +27,7 @@ vite.config.ts.timestamp-*
 /test-results
 /playwright-report
 .claude/settings.local.json
+# env files: flags only, but keep the local copy out of git; .env.example documents them
+.env
+.env.*
+!.env.example
