@@ -5,7 +5,8 @@ import type { FilterState, DataRanges } from '$lib/types';
 function makeDefaults(): FilterState {
 	return {
 		schemes: new Set(['SchemeA', 'SchemeB']),
-		levels: new Set(['Pre-Quantum', 1, 2, 3, 4, 5] as const),
+		// Mirrors SELECTABLE_LEVELS (level cap = 2; see data.ts)
+		levels: new Set(['Pre-Quantum', 1, 2] as const),
 		minPk: 100, maxPk: 50000,
 		minSig: 200, maxSig: 80000,
 		minPkPlusSig: 300, maxPkPlusSig: 130000,
@@ -48,9 +49,9 @@ describe('buildUrlParams', () => {
 
 	it('encodes filtered level set', () => {
 		const defaults = makeDefaults();
-		const state = { ...defaults, levels: new Set([1, 3] as const) };
+		const state = { ...defaults, levels: new Set([1, 2] as const) };
 		const params = buildUrlParams(state, defaults);
-		expect(params.get('l')).toBe('1,3');
+		expect(params.get('l')).toBe('1,2');
 	});
 
 	it('encodes Pre-Quantum level as PQ', () => {

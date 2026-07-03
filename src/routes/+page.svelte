@@ -1,53 +1,27 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
+	import { base } from '$app/paths';
 	import BenchmarkEnvInfo from '$lib/components/BenchmarkEnvInfo.svelte';
 	import FilterPanel from '$lib/components/FilterPanel.svelte';
 	import SchemeTable from '$lib/components/SchemeTable.svelte';
 	import ScatterPlot from '$lib/components/ScatterPlot.svelte';
 	import SuiLens from '$lib/components/SuiLens.svelte';
 	import { processYamlSchemes } from '$lib/data';
-	import { getFilterStore, buildUrlParams, createFilterStore } from '$lib/filterStore';
-	import { roundStore, type Round } from '$lib/roundStore';
+	import { getFilterStore, buildUrlParams } from '$lib/filterStore';
 	import { allSchemeData, benchmarkEnv, lastUpdated } from '$lib/schemeData';
-	import type { PageData } from './$types';
 
-	let { data: _ }: { data: PageData } = $props();
-
-	const _init = processYamlSchemes(allSchemeData, 'round-3', { useLatestVersion: true });
-	let schemes = $state(_init.schemes);
-	let categories = $state([...new Set(_init.schemes.map((s) => s.category))].sort());
-	let ranges = $state(_init.ranges);
+	// Dataset is pinned to the round-3 survivors at their latest specs (the old
+	// round selector is gone) — matches what +page.ts fed the filter store.
+	const { schemes, ranges } = processYamlSchemes(allSchemeData, 'round-3', { useLatestVersion: true });
+	const categories = [...new Set(schemes.map((s) => s.category))].sort();
 
 	const { applyUrl } = getFilterStore();
 
-	function applyRound(round: Round) {
-		const tagFilter = round === 'latest' || round === 'round-3' ? 'round-3' : round;
-		const result = processYamlSchemes(allSchemeData, tagFilter, { useLatestVersion: round === 'latest' || round === 'round-3' });
-		schemes = result.schemes;
-		categories = [...new Set(result.schemes.map((s) => s.category))].sort();
-		ranges = result.ranges;
-		createFilterStore(result.parameterSets, result.ranges, new URLSearchParams());
-	}
-
 	onMount(() => {
-		// Apply round from URL (?r=1 or ?r=2)
-		const params = new URLSearchParams(window.location.search);
-		const rParam = params.get('r');
-		if (rParam === '1') {
-			roundStore.set('round-1');
-			applyRound('round-1');
-		} else if (rParam === '2') {
-			roundStore.set('round-2');
-			applyRound('round-2');
-		} else if (rParam === '3') {
-			roundStore.set('round-3');
-			applyRound('round-3');
-		}
-
 		// Apply filter URL params
+		const params = new URLSearchParams(window.location.search);
 		if (params.toString()) applyUrl(params);
 
 		// Debounced URL sync on filter changes
@@ -57,21 +31,13 @@
 			if (urlSyncTimer) clearTimeout(urlSyncTimer);
 			urlSyncTimer = setTimeout(() => {
 				const p = buildUrlParams(state, defaults);
-				const round = $roundStore === 'round-1' ? '1' : $roundStore === 'round-2' ? '2' : $roundStore === 'round-3' ? '3' : null;
-				if (round) p.set('r', round);
 				const qs = p.toString();
 				const newUrl = qs ? `?${qs}` : $page.url.pathname;
 				goto(newUrl, { replaceState: true, keepFocus: true, noScroll: true });
 			}, 300);
 		});
 
-		// Re-process when round changes — store stays stable, data updates in place
-		const unsubRound = roundStore.subscribe((round) => {
-			applyRound(round);
-		});
-
 		return () => {
-			unsubRound();
 			unsubFilter();
 			if (urlSyncTimer) clearTimeout(urlSyncTimer);
 		};
@@ -86,20 +52,12 @@
 		</h1>
 		<p class="mt-2 text-sm text-pqs-steel dark:text-pqs-bluegray">
 			Comparing NIST on-ramp candidates and standardized schemes, curated for Sui's PQ-authenticator
-			decision: each scheme is shown at its lowest NIST security level only.
+			decision: each scheme is shown at its lowest NIST security level, and only levels 1 and 2 are listed.
 			Click column headers to sort. Use the filters to narrow down by category, security level, or size constraints.
 		</p>
 		<p class="mt-1.5 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
-			{#if $roundStore === 'latest'}
-				Data reflects the latest known specifications for each scheme, last updated {lastUpdated}.
-				Consult the individual scheme websites for the most current information.
-			{:else if $roundStore === 'round-3'}
-				Showing the 9 schemes selected for Round 3 of the NIST Additional Signatures competition.
-				Round 3 specific submission data is not yet available; data reflects the most recent known specifications (last updated {lastUpdated}).
-			{:else}
-				Data reflects scheme specifications as submitted at the start of {$roundStore === 'round-1' ? 'Round 1' : 'Round 2'} of the NIST Additional Signatures competition (data last updated {lastUpdated}).
-				Schemes may have been updated since; consult the individual scheme websites for current specifications.
-			{/if}
+			Data reflects the latest known specifications for each scheme, last updated {lastUpdated}.
+			Consult the individual scheme websites for the most current information.
 		</p>
 	</div>
 
@@ -144,13 +102,8 @@
 			<!-- Performance disclaimer -->
 			<div class="rounded border border-pqs-apricot/40 bg-pqs-apricot/10 px-4 py-3 text-xs text-pqs-midnight dark:border-pqs-apricot/30 dark:bg-pqs-apricot/5 dark:text-pqs-smoke">
 				<strong class="font-heading font-semibold text-pqs-apricot">Performance note:</strong>
-				{#if $roundStore === 'latest' || $roundStore === 'round-3'}
-					Cycle counts are from our own benchmarks on a {benchmarkEnv?.cpu.model ?? 'reference machine'} —
-					see the environment details below.
-				{:else}
-					Timings are taken from the scheme submissions and may not reflect optimised implementations.
-					Comparisons across schemes should be treated with caution.
-				{/if}
+				Cycle counts are from our own benchmarks on a {benchmarkEnv?.cpu.model ?? 'reference machine'} —
+				see the environment details below.
 			</div>
 
 			<!-- Unified table -->

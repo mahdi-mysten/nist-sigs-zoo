@@ -153,6 +153,22 @@ export function parseParameterSets(
 // spread without changing the ranking. Flip to false to restore full parameter lists.
 export const LOWEST_LEVEL_ONLY = true;
 
+// Level cap, stacked on top of LOWEST_LEVEL_ONLY: the Sui authenticator would
+// deploy at NIST level 1 or 2, so higher-level sets are out of scope — and a
+// scheme whose *floor* is level 3+ disappears entirely (intended). Raise this
+// to widen the zoo again. Pre-Quantum baselines (EdDSA/ECDSA) always pass.
+export const MAX_NIST_LEVEL = 2;
+
+export function withinLevelCap(level: NistLevel | number): boolean {
+	return level === 'Pre-Quantum' || (typeof level === 'number' && level <= MAX_NIST_LEVEL);
+}
+
+// The only levels the curated data can contain — drives the filter checkboxes
+// and the default filter state, so widening MAX_NIST_LEVEL updates those too.
+export const SELECTABLE_LEVELS: NistLevel[] = (
+	['Pre-Quantum', 1, 2, 3, 4, 5] as NistLevel[]
+).filter(withinLevelCap);
+
 const LEVEL_ORDER: Record<string, number> = {
 	'Pre-Quantum': 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5,
 };
@@ -199,6 +215,12 @@ export function processYamlSchemes(
 			latest = sorted[0];
 		}
 
+		const parametersets = (
+			LOWEST_LEVEL_ONLY ? lowestLevelSets(latest.parametersets) : latest.parametersets
+		).filter((ps) => withinLevelCap(ps.level));
+		// Floor above MAX_NIST_LEVEL: the whole scheme drops out of the zoo.
+		if (parametersets.length === 0) continue;
+
 		const scheme: Scheme = {
 			scheme: yaml.name,
 			status: latest.status,
@@ -212,10 +234,6 @@ export function processYamlSchemes(
 			tags: [...new Set(yaml.versions.flatMap((v) => v.tags ?? []))],
 		};
 		schemes.push(scheme);
-
-		const parametersets = LOWEST_LEVEL_ONLY
-			? lowestLevelSets(latest.parametersets)
-			: latest.parametersets;
 
 		for (const ps of parametersets) {
 			const level: NistLevel =

@@ -1,5 +1,6 @@
 import { derived, writable } from 'svelte/store';
 import type { Readable, Writable } from 'svelte/store';
+import { SELECTABLE_LEVELS } from './data';
 import type { DataRanges, FilterState, NistLevel, ParameterSet, SortableColumn } from './types';
 
 const DEFAULT_SORT_COL: SortableColumn = 'scheme';
@@ -8,7 +9,7 @@ const DEFAULT_SORT_DIR = 'asc' as const;
 function defaultFilter(ranges: DataRanges, allSchemes: Set<string>): FilterState {
 	return {
 		schemes: new Set(allSchemes),
-		levels: new Set(['Pre-Quantum', 1, 2, 3, 4, 5] as NistLevel[]),
+		levels: new Set<NistLevel>(SELECTABLE_LEVELS),
 		minPk: ranges.pk[0],
 		maxPk: ranges.pk[1],
 		minSig: ranges.sig[0],
@@ -132,11 +133,12 @@ function compareValues(a: ParameterSet, b: ParameterSet, col: SortableColumn): n
 	}
 }
 
-// Stable module-level stores — created once, updated in place on round changes
+// Stable module-level stores — created once, updated in place when a page load
+// calls createFilterStore again (main ↔ advanced share the same store).
 const _allRows = writable<ParameterSet[]>([]);
 let _store: Writable<FilterState> | null = null;
 let _defaults: FilterState | null = null;
-// _filteredRows derives from both _store and _allRows, so it stays valid across round changes
+// _filteredRows derives from both _store and _allRows, so it stays valid across re-inits
 let _filteredRows: Readable<ParameterSet[]> | null = null;
 
 export function createFilterStore(
@@ -190,7 +192,7 @@ export function createFilterStore(
 				});
 		});
 	} else {
-		// Round change: reset filter state to new defaults, data already updated via _allRows
+		// Re-init (page navigation): reset filter state to defaults, data already updated via _allRows
 		_store.set(initial);
 	}
 

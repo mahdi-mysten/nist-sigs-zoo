@@ -7,7 +7,9 @@ This file provides guidance to Claude Code when working with code in this reposi
 **Mysten PQ Signatures Zoo** — a Mysten Labs fork of the PQShield NIST Signatures Zoo,
 narrowed to the schemes relevant to Sui's PQ-authenticator decision. Signatures only
 (the upstream KEM comparison is removed), each scheme shown at its lowest NIST security
-level, plus a "Sui on-chain lens" hero backed by our own measured benchmarks.
+level and only at levels 1–2, plus a "Sui on-chain lens" hero backed by our own
+measured benchmarks. The upstream round selector is removed; the dataset is pinned to
+the round-3 survivors at their latest specs.
 Built with SvelteKit (adapter-static) + Tailwind CSS v4 + TypeScript.
 Deploy: `npm run build` → `dist/`.
 
@@ -51,7 +53,7 @@ Do not import from `$app/*`, `$lib/schemeData`, or `$lib/mystenBenchData` (these
 
 Playwright against a built static site. The playwright config runs `npm run build && npm run preview -- --port 4175` automatically (`reuseExistingServer: true`, so a running preview server is reused for speed).
 
-- `main.spec.ts` — main page: heading, Sui lens (table, host toggle, pending state), Vega chart render, advanced link, round selector, table
+- `main.spec.ts` — main page: heading, Sui lens (table, host toggle, pending state), Vega chart render, advanced link, filter levels, traffic-light shading, table
 - `advanced.spec.ts` — advanced page: axis controls, heading updates, URL encoding/restoration, filter panel
 
 **Adding E2E tests:** add to `e2e/main.spec.ts` or `e2e/advanced.spec.ts`, or create a new `e2e/<feature>.spec.ts`.
@@ -73,6 +75,9 @@ Only these schemes are kept; do not re-add others without a decision:
 The data layer additionally keeps only each scheme's **lowest** NIST-level parameter
 sets (all variants at that level survive). This is `LOWEST_LEVEL_ONLY` +
 `lowestLevelSets()` in `src/lib/data.ts`; flip the const to restore full lists.
+Stacked on top, `MAX_NIST_LEVEL = 2` drops every set above level 2 (Pre-Quantum
+baselines always pass) — a scheme whose floor is level 3+ disappears entirely.
+Raise the const to widen; the filter checkboxes follow via `SELECTABLE_LEVELS`.
 
 Schema per file:
 ```yaml
@@ -160,11 +165,12 @@ src/
 ├── lib/
 │   ├── types.ts          # Scheme, ParameterSet, SchemeYaml, VersionYaml, FilterState types
 │   ├── constants.ts      # CPUSPEED, NIST_LEVELS
-│   ├── data.ts           # processYamlSchemes() + LOWEST_LEVEL_ONLY curation
+│   ├── data.ts           # processYamlSchemes() + LOWEST_LEVEL_ONLY + MAX_NIST_LEVEL curation
+│   ├── format.ts         # shared cell formatters (fmt, fmtCycles, fmtTime)
+│   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
 │   ├── mystenBench.ts    # pq-bench CSV parser + intra-host verify ratios (pure)
 │   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench[host]
 │   ├── filterStore.ts    # Svelte writable store + derived filteredRows + URL codec
-│   ├── roundStore.ts     # writable<'round-1'|'round-2'|'round-3'|'latest'> — drives dataset selection
 │   ├── schemeData.ts     # import.meta.glob loader → allSchemeData: SchemeYaml[]
 │   ├── themeStore.ts     # dark/light/system theme store → localStorage
 │   ├── yaml.d.ts         # TypeScript module declaration for *.yaml imports
@@ -174,12 +180,12 @@ src/
 │       ├── RangeField.svelte     # reusable number input
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
-│       ├── SuiLens.svelte        # Sui on-chain lens: host toggle, measured+reference table, note
+│       ├── SuiLens.svelte        # Sui on-chain lens: host toggle, measured+reference table (mirrors SchemeTable columns), note
 │       └── SuiLensPlot.svelte    # Vega-Lite pk+sig vs verify-µs scatter (points prop)
 └── routes/
-    ├── +layout.svelte    # nav (Mysten branding, round selector, History link, dark toggle), footer
+    ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
     ├── +page.ts          # load: processYamlSchemes('round-3', {useLatestVersion:true}), createFilterStore
-    ├── +page.svelte      # SuiLens hero, page composition, round switching, URL state sync
+    ├── +page.svelte      # SuiLens hero, page composition, URL state sync
     ├── advanced/
     │   ├── +page.ts      # same load as main page
     │   └── +page.svelte  # axis selectors, scale toggles, ScatterPlot, FilterPanel, SchemeTable
@@ -211,9 +217,11 @@ tests/
 
 ### Sui On-Chain Lens
 
-`SuiLens.svelte` on the main page, independent of the round selector:
+`SuiLens.svelte` on the main page. Its table mirrors `SchemeTable`'s columns, order,
+header styling and cell formatting (via `$lib/format` + `$lib/trafficLight`), with the
+lens extras — host-measured Verify (median) and vs Ed25519 — as the last columns:
 - Measured rows come from `data/mysten/mac-m2-max.csv`; the host toggle only swaps
-  which host's run feeds the verify/ratio columns (sizes are host-independent).
+  which host's run feeds the sign/verify/ratio columns (sizes are host-independent).
 - vs-Ed25519 ratios come from `computeVerifyRatios()` on the selected host's rows —
   each host is compared against its own Ed25519 baseline.
 - When the selected host's CSV has no data rows (server placeholder), verify/ratio
@@ -225,33 +233,22 @@ tests/
 ### Filter Store
 
 `src/lib/filterStore.ts` uses stable module-level store references. `_store` and `_filteredRows`
-are created once; `createFilterStore()` on subsequent calls (round changes) updates `_allRows`
+are created once; `createFilterStore()` on subsequent calls (page navigations) updates `_allRows`
 and resets `_store` in place. This means components calling `getFilterStore()` at init always
 hold valid references — no stale subscription bugs.
 
 Category checkbox state is **derived** from the scheme set, not stored separately.
 
 URL state: filter params encoded as query params, applied client-side in `onMount`.
-Round encoded as `?r=1` for round-1, `?r=2` for round-2. No param = latest (default).
 
-### Round Selector
+### Dataset (pinned)
 
-Nav shows Latest / Round 3 / Round 2 / Round 1 toggle (only on home page). Clicking updates
-`roundStore`, which triggers `applyRound()` in `+page.svelte`, which calls `createFilterStore()`
-with new data. The Sui lens is unaffected by round changes.
-
-### Latest View
-
-"Latest" (default) and "Round 3" both use `tagFilter='round-3'` with `useLatestVersion=true`.
+The round selector is gone. Both pages use `tagFilter='round-3'` with `useLatestVersion=true`.
 Inclusion: scheme must have at least one version tagged `round-3` (or be an untagged reference
 scheme). Data shown: `sorted[0]` (newest version by date, regardless of tags).
 
-Round 2 view uses `tagFilter='round-2'` without `useLatestVersion` — shows the pinned
-round-2 submission version.
-
-Post-round-3 spec updates should be added as new version entries **without** any tags. This way:
-- Round 2/3 views show pinned submission data.
-- Latest view shows the most current specs.
+Post-round-3 spec updates should be added as new version entries **without** any tags so the
+pinned view keeps showing the most current specs.
 
 ### Performance Data
 

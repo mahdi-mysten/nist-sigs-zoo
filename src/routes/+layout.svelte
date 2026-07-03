@@ -1,10 +1,8 @@
 <script lang="ts">
 	import './layout.css';
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
 	import { base } from '$app/paths';
 	import { themeStore } from '$lib/themeStore';
-	import { roundStore, type Round } from '$lib/roundStore';
 	import { lastUpdated } from '$lib/schemeData';
 
 	let { children } = $props();
@@ -14,18 +12,11 @@
 	);
 	const themeLabel = $derived(`Theme: ${$themeStore} — click to cycle`);
 
-	const isHome = $derived($page.route.id === '/');
-
 	let menuOpen = $state(false);
 
 	onMount(() => {
 		themeStore.init();
 	});
-
-	function setRound(r: Round) {
-		roundStore.set(r);
-		menuOpen = false;
-	}
 
 	function closeMenu() {
 		menuOpen = false;
@@ -44,34 +35,6 @@
 
 			<!-- Desktop nav -->
 			<div class="ml-auto hidden items-center gap-5 font-heading text-sm md:flex">
-				{#if isHome}
-					<div class="flex items-center gap-1 rounded border border-pqs-steel/40 p-0.5 font-heading text-sm">
-						<button
-							onclick={() => setRound('latest')}
-							class="rounded px-2 py-0.5 transition-colors {$roundStore === 'latest' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-						>
-							Latest
-						</button>
-						<button
-							onclick={() => setRound('round-3')}
-							class="rounded px-2 py-0.5 transition-colors {$roundStore === 'round-3' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-						>
-							Round 3
-						</button>
-						<button
-							onclick={() => setRound('round-2')}
-							class="rounded px-2 py-0.5 transition-colors {$roundStore === 'round-2' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-						>
-							Round 2
-						</button>
-						<button
-							onclick={() => setRound('round-1')}
-							class="rounded px-2 py-0.5 transition-colors {$roundStore === 'round-1' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-						>
-							Round 1
-						</button>
-					</div>
-				{/if}
 				<a href="{base}/history/" class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
 					History
 				</a>
@@ -125,37 +88,6 @@
 		<!-- Mobile dropdown -->
 		{#if menuOpen}
 			<div class="border-t border-pqs-steel/30 px-6 pb-4 pt-3 font-heading text-sm md:hidden">
-				{#if isHome}
-					<div class="mb-4">
-						<p class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-pqs-bluegray/60">Dataset</p>
-						<div class="flex items-center gap-1 rounded border border-pqs-steel/40 p-0.5 self-start">
-							<button
-								onclick={() => setRound('latest')}
-								class="rounded px-3 py-1 transition-colors {$roundStore === 'latest' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-							>
-								Latest
-							</button>
-							<button
-								onclick={() => setRound('round-3')}
-								class="rounded px-3 py-1 transition-colors {$roundStore === 'round-3' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-							>
-								Round 3
-							</button>
-							<button
-								onclick={() => setRound('round-2')}
-								class="rounded px-3 py-1 transition-colors {$roundStore === 'round-2' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-							>
-								Round 2
-							</button>
-							<button
-								onclick={() => setRound('round-1')}
-								class="rounded px-3 py-1 transition-colors {$roundStore === 'round-1' ? 'bg-pqs-apricot text-pqs-midnight font-semibold' : 'text-pqs-bluegray hover:text-white'}"
-							>
-								Round 1
-							</button>
-						</div>
-					</div>
-				{/if}
 				<div class="flex flex-col gap-3">
 					<a href="{base}/history/" onclick={closeMenu} class="text-pqs-bluegray hover:text-pqs-apricot transition-colors">
 						History
