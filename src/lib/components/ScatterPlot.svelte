@@ -36,6 +36,7 @@
 		'MPCitH': 'diamond',
 		Multivariate: 'triangle-up',
 		Symmetric: 'triangle-down',
+		'Hash-based': 'wedge',
 		Isogenies: 'circle',
 		'Pre-Quantum': 'triangle-left',
 		Other: 'triangle-right'

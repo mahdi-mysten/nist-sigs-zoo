@@ -1,3 +1,8 @@
+- date: '2026-07-07'
+  type: update
+  description: "Sui lens re-based on a new <a href=\"https://github.com/mahdi-mysten/pq-sig-bench\">pq-sig-bench</a> run measured through fastcrypto on the Apple M2 Max: FN-DSA-512 verify 13.2 µs (0.47× Ed25519), ML-DSA-44 shown as the mean of five implementations (libcrux, RustCrypto ml-dsa, fips204, PQClean C, aws-lc-rs). Added a qualitative Details column (implementation risk, Rust ecosystem assurance, assumption maturity). SLH-DSA recategorized from Symmetric to Hash-based (FAEST remains Symmetric)."
+  schemes: [Falcon, ML-DSA, SLH-DSA]
+
 - date: '2026-07-01'
   type: update
   description: "Published a standalone KEMs comparison page — public-key and ciphertext sizes plus keygen/encaps/decaps benchmarks for ML-KEM, HQC, and classical ECDH."

@@ -86,13 +86,50 @@ test.describe('Sui on-chain lens', () => {
 		await expect(lens.getByText('zoo reference data (i7-12650H, rdtsc)')).toBeVisible();
 	});
 
-	test('lens table mirrors the zoo table columns, lens extras last', async ({ page }) => {
+	test('lens table folds Parameter Set into Scheme and ends with Details', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.locator('table thead th')).toHaveText([
-			'Scheme', 'Category', 'Status', 'Parameter Set', 'Level',
-			'pk (B)', 'sig (B)', 'pk+sig (B)', 'Sign', 'Verify (median)', 'vs Ed25519',
+			'Scheme', 'Category', 'Status', 'Level',
+			'pk (B)', 'sig (B)', 'pk+sig (B)', 'Sign', 'Verify (median)', 'vs Ed25519', 'Details',
 		]);
+	});
+
+	test('ML-DSA-44 row is the average of five implementations', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		await expect(lens.getByText('(avg of 5)')).toBeVisible();
+		await expect(lens.getByText('mean of five independent implementations')).toBeVisible();
+	});
+
+	test('qualitative Details column renders decision flags', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		// Falcon's implementation-risk flag is the canonical example; the verified
+		// detail lives in the flag's tooltip, not the visible text
+		await expect(lens.getByText('Hard to sign safely', { exact: true })).toBeVisible();
+		await expect(lens.locator('[title*="floating-point Gaussian sampler"]')).toHaveCount(1);
+	});
+
+	test('Ed25519 batch-verification caveat is stated', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		await expect(lens.getByText(/batch-verify Ed25519/)).toBeVisible();
+	});
+
+	test('SLH-DSA measured rows are present, without dagger markers', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		await expect(lens.getByText('SLH-DSA-SHAKE-128s', { exact: true })).toBeVisible();
+		await expect(lens.getByText('†')).toHaveCount(0);
+	});
+
+	test('status chips carry the FIPS number of each standard', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		await expect(lens.getByText('FIPS 204', { exact: true })).toBeVisible();
+		await expect(lens.getByText('FIPS 205', { exact: true }).first()).toBeVisible();
+		await expect(lens.getByText('FIPS 206 pending', { exact: true })).toBeVisible();
 	});
 
 	test('lens Vega figure renders alongside the zoo scatter', async ({ page }) => {

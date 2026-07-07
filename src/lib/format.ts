@@ -18,3 +18,10 @@ export function fmtTime(us: number): string {
 	if (us >= 1_000) return (us / 1_000).toFixed(2) + ' ms';
 	return us.toFixed(1) + ' µs';
 }
+
+// Chip text for FIPS-status rows: surface the concrete standard number when the
+// selected version label carries one ("FIPS 204" → "FIPS 204"), else plain "FIPS".
+export function fipsChipLabel(version: string): string {
+	const m = /^FIPS\s*\d+/.exec(version);
+	return m ? m[0] : 'FIPS';
+}

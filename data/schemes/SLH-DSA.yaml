@@ -1,7 +1,7 @@
 name: SLH-DSA
 website: https://sphincs.org/
-category: Symmetric
-assumption: Hash-based
+category: Hash-based
+assumption: Hash functions
 versions:
 - version: FIPS 205
   date: '2024-08-13'

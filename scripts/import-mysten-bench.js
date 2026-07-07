@@ -1,24 +1,30 @@
 #!/usr/bin/env node
-// Import a pq-bench results CSV (fastcrypto fork, pq-bench/) into data/mysten/<host>.csv.
+// Import a pq-sig-bench results CSV (github.com/mahdi-mysten/pq-sig-bench) into
+// data/mysten/<host>.csv.
 //
 // Usage: npm run import-bench -- <results.csv> <mac-m2-max|server>
 //
-// Server flow: run the fastcrypto fork's pq-bench/run-on-server.sh on the server, scp the
-// resulting results-<label>.csv here, then import it with host "server".
+// Server flow: run pq-sig-bench (`cargo run --release --bin report`) on the server,
+// scp the resulting results.csv here, then import it with host "server".
+//
+// NOTE: importing overwrites the host file wholesale — rows carried over from
+// older runs (the SLH-DSA block in mac-m2-max.csv) must be re-appended by hand
+// until the harness benches those schemes itself.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Mirrors MYSTEN_BENCH_HEADER in src/lib/mystenBench.ts and the header the pq-bench
-// harness emits — all three must agree byte-for-byte or the site parser rejects the file.
+// Mirrors MYSTEN_BENCH_HEADER in src/lib/mystenBench.ts and the header the
+// pq-sig-bench harness emits — all three must agree byte-for-byte or the site
+// parser rejects the file.
 const EXPECTED_HEADER =
-	'name,family,security_level,std,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519';
+	'scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean';
 
 const HOSTS = ['mac-m2-max', 'server'];
 
 const USAGE = `usage: npm run import-bench -- <results.csv> <host>
-  <results.csv>  CSV emitted by the pq-bench harness
+  <results.csv>  CSV emitted by the pq-sig-bench harness
   <host>         one of: ${HOSTS.join(', ')}`;
 
 function fail(msg) {

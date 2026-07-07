@@ -42,7 +42,7 @@ npm run test:e2e      # E2E tests (Playwright, builds site first)
 Vitest with node environment. Tests pure TypeScript functions only — no Svelte components, no browser.
 
 - `data.test.ts` — `processYamlSchemes()`: tag filtering, version selection, field computation, flag propagation, lowest-level curation
-- `mystenBench.test.ts` — `parseMystenBenchCsv()` / `computeVerifyRatios()`: pq-bench CSV parsing, pending state, intra-host ratios
+- `mystenBench.test.ts` — `parseMystenBenchCsv()` / `aggregateByScheme()`: pq-sig-bench CSV parsing, pending state, per-scheme averaging across implementations
 - `filterStore.test.ts` — `buildUrlParams()`: URL encoding of filter state
 
 **Adding unit tests:** create `src/lib/__tests__/<module>.test.ts`. Import directly from `$lib/...`.
@@ -114,28 +114,37 @@ The YAML files are bundled at build time via a Vite plugin (`vite.config.ts`) an
 
 ### Mysten measured benchmarks — `data/mysten/*.csv`
 
-Our own pq-bench runs (sui-pq repo, `sui/benchmark`), one CSV per host:
-`mac-m2-max.csv` (Apple M2 Max) and `server.csv` (Sui-validator-class server;
-header-only placeholder until the server run is imported).
+Our own runs of the [pq-sig-bench](https://github.com/mahdi-mysten/pq-sig-bench)
+harness, measured **through fastcrypto** — the same stack a Sui validator runs.
+One CSV per host: `mac-m2-max.csv` (Apple M2 Max) and `server.csv`
+(Sui-validator-class server; header-only placeholder until the server run is
+imported). One row per **(scheme, implementation)** — ML-DSA-44 has five rows
+(libcrux, RustCrypto ml-dsa, fips204, PQClean C, aws-lc-rs); the UI averages them.
 
-Header (must match `MYSTEN_BENCH_HEADER` in `src/lib/mystenBench.ts` and the sui-pq
-harness output exactly):
+Header (must match `MYSTEN_BENCH_HEADER` in `src/lib/mystenBench.ts` and the
+pq-sig-bench harness output exactly):
 
 ```
-name,family,security_level,std,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519
+scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean
 ```
 
 `#`-comment lines and blank lines are ignored. Verify medians are over 1000
-iterations; keygen/sign over 100. Import new runs with
-`npm run import-bench -- <results.csv> <mac-m2-max|server>`
+iterations; keygen/sign over 100. `vs_ed25519`/`vs_pqclean` are harness-computed,
+**intra-run** ratios — never recompute them across runs or hosts. Import new runs
+with `npm run import-bench -- <results.csv> <mac-m2-max|server>`
 (`scripts/import-mysten-bench.js` — validates the header and row count, then writes
-`data/mysten/<host>.csv`). Server flow: run sui-pq's `sui/benchmark/run-on-server.sh`
-on the server, scp `results-<label>.csv` over, import with host `server`.
+`data/mysten/<host>.csv`). Importing overwrites the host file: rows carried over
+from older runs must be re-appended by hand.
 
-Parsing (`parseMystenBenchCsv`) and ratio derivation (`computeVerifyRatios`) live in
-`src/lib/mystenBench.ts` (pure, unit-tested); the `import.meta.glob` `?raw` loader is
-`src/lib/mystenBenchData.ts`. Ratios are always computed against the same host's own
-Ed25519 row — never cross-host.
+Carried-over rows (currently the four SLH-DSA rows in `mac-m2-max.csv`, from the
+earlier pq-bench run) use the impl label `earlier pq-bench run`
+(`OLDER_RUN_IMPL` in `src/lib/mystenBench.ts`); their vs_ed25519 is against that
+run's own Ed25519 baseline (44375 ns) and is displayed as recorded, without any
+visual marker.
+
+Parsing (`parseMystenBenchCsv`) and per-scheme averaging (`aggregateByScheme` —
+means over the impls that report a field) live in `src/lib/mystenBench.ts` (pure,
+unit-tested); the `import.meta.glob` `?raw` loader is `src/lib/mystenBenchData.ts`.
 
 ### History
 
@@ -164,12 +173,13 @@ data/
 src/
 ├── lib/
 │   ├── types.ts          # Scheme, ParameterSet, SchemeYaml, VersionYaml, FilterState types
-│   ├── constants.ts      # CPUSPEED, NIST_LEVELS
+│   ├── constants.ts      # CPUSPEED, NIST_LEVELS, PENDING_FIPS
 │   ├── data.ts           # processYamlSchemes() + LOWEST_LEVEL_ONLY + MAX_NIST_LEVEL curation
 │   ├── format.ts         # shared cell formatters (fmt, fmtCycles, fmtTime)
 │   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
-│   ├── mystenBench.ts    # pq-bench CSV parser + intra-host verify ratios (pure)
+│   ├── mystenBench.ts    # pq-sig-bench CSV parser + per-scheme impl averaging (pure)
 │   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench[host]
+│   ├── suiNotes.ts       # qualitative decision factors for the lens Details column
 │   ├── filterStore.ts    # Svelte writable store + derived filteredRows + URL codec
 │   ├── schemeData.ts     # import.meta.glob loader → allSchemeData: SchemeYaml[]
 │   ├── themeStore.ts     # dark/light/system theme store → localStorage
@@ -180,7 +190,7 @@ src/
 │       ├── RangeField.svelte     # reusable number input
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
-│       ├── SuiLens.svelte        # Sui on-chain lens: host toggle, measured+reference table (mirrors SchemeTable columns), note
+│       ├── SuiLens.svelte        # Sui on-chain lens: host toggle, measured+reference table (merged Scheme column + Details), notes
 │       └── SuiLensPlot.svelte    # Vega-Lite pk+sig vs verify-µs scatter (points prop)
 └── routes/
     ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
@@ -217,15 +227,32 @@ tests/
 
 ### Sui On-Chain Lens
 
-`SuiLens.svelte` on the main page. Its table mirrors `SchemeTable`'s columns, order,
-header styling and cell formatting (via `$lib/format` + `$lib/trafficLight`), with the
-lens extras — host-measured Verify (median) and vs Ed25519 — as the last columns:
-- Measured rows come from `data/mysten/mac-m2-max.csv`; the host toggle only swaps
-  which host's run feeds the sign/verify/ratio columns (sizes are host-independent).
-- vs-Ed25519 ratios come from `computeVerifyRatios()` on the selected host's rows —
-  each host is compared against its own Ed25519 baseline.
-- When the selected host's CSV has no data rows (server placeholder), verify/ratio
-  cells render as "pending" with a pointer to `npm run import-bench`.
+`SuiLens.svelte` on the main page. Its table mirrors `SchemeTable`'s header styling
+and cell formatting (via `$lib/format` + `$lib/trafficLight`) but **not** its column
+list: there is no Parameter Set column (the measured name *is* the set, so it's
+folded into Scheme), and the lens extras — host-measured Verify (median),
+vs Ed25519, and a qualitative **Details** column — come last:
+- Measured rows come from `data/mysten/mac-m2-max.csv`, one display row per scheme
+  via `aggregateByScheme()`; the host toggle only swaps which host's run feeds the
+  sign/verify/ratio columns (sizes are host-independent).
+- ML-DSA-44 shows the mean of its five implementations (`(avg of 5)` marker;
+  per-impl spread in the cell tooltip). FN-DSA-512 is the exception: the row shows
+  fastcrypto's verifier with PQClean C in parentheses (same math, same bytes) —
+  PQClean never enters the FN-DSA row's averages.
+- vs-Ed25519 ratios are the harness's own intra-run `vs_ed25519` column — never
+  recomputed. Rows carried from the earlier run (SLH-DSA) keep that run's ratios.
+  A footnote states the Ed25519 batching caveat: validators batch-verify Ed25519
+  (~2× amortized), no PQ scheme batches.
+- Status chips name the concrete standard: "FIPS 204"/"FIPS 205" from the picked
+  version's label (`fipsChipLabel` in `$lib/format`), and "FIPS 206 pending" for
+  Falcon via `PENDING_FIPS` in `$lib/constants` (same in `SchemeTable`).
+- The Details column renders compact flags (green strength / amber caveat / red
+  risk) from `src/lib/suiNotes.ts` — implementation risk, Rust ecosystem assurance
+  (audits/verification/FIPS validation), assumption maturity. The verified
+  specifics live in each flag's hover tooltip. Keyed by measured name, falling
+  back to zoo scheme name.
+- When the selected host's CSV has no data rows (server placeholder), sign/verify/
+  ratio cells render as "pending" with a pointer to `npm run import-bench`.
 - Zoo reference rows (HAWK-512, MAYO-one, UOV-Is-pkc, SQIsign-I, FAEST-128s) are
   resolved from the curated YAML via `ZOO_REFERENCE_SETS`; their timings are
   upstream's i7-12650H rdtsc bench, so they are display-only and never enter ratios.

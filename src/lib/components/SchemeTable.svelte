@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ParameterSet, SortableColumn } from '$lib/types';
-	import { fmt, fmtCycles, fmtTime } from '$lib/format';
+	import { PENDING_FIPS } from '$lib/constants';
+	import { fipsChipLabel, fmt, fmtCycles, fmtTime } from '$lib/format';
 	import { getFilterStore } from '$lib/filterStore';
 	import { sizeCellClass, signCellClass, verifyCellClass } from '$lib/trafficLight';
 	import SecurityBadge from './SecurityBadge.svelte';
@@ -88,9 +89,11 @@
 					<!-- Status -->
 					<td class="whitespace-nowrap px-3 py-1.5">
 						{#if row.status === 'FIPS'}
-							<span class="rounded bg-pqs-apricot/20 px-1.5 py-0.5 text-xs font-semibold text-pqs-apricot">FIPS</span>
+							<span class="rounded bg-pqs-apricot/20 px-1.5 py-0.5 text-xs font-semibold text-pqs-apricot">{fipsChipLabel(row.version)}</span>
 						{:else if row.status === 'To be standardized'}
-							<span class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray">Std pending</span>
+							<span class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray">
+								{PENDING_FIPS[row.scheme] ? `${PENDING_FIPS[row.scheme]} pending` : 'Std pending'}
+							</span>
 						{:else if row.status === 'Classic cryptography'}
 							<span class="text-pqs-steel/70 dark:text-pqs-bluegray/70">Classic</span>
 						{:else}

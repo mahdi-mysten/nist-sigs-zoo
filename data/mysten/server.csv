@@ -1,4 +1,4 @@
 # Placeholder for the Sui-validator-class server run. Populate via:
-#   npm run import-bench -- results-<label>.csv server
-# (results come from the fastcrypto fork's pq-bench/run-on-server.sh)
-name,family,security_level,std,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519
+#   npm run import-bench -- results.csv server
+# (results come from running github.com/mahdi-mysten/pq-sig-bench on the server)
+scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean

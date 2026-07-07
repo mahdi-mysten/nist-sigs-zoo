@@ -42,6 +42,8 @@ export function parseSchemes(csv: string): Scheme[] {
 	return parseCsv(csv).map((d) => ({
 		scheme: d['Scheme'],
 		status: d['NIST status'],
+		// Legacy CSV path has no version label; the FIPS chip falls back to plain "FIPS".
+		version: '',
 		website: d['Website'],
 		category: d['Category'],
 		assumption: d['Assumption'],
@@ -224,6 +226,7 @@ export function processYamlSchemes(
 		const scheme: Scheme = {
 			scheme: yaml.name,
 			status: latest.status,
+			version: latest.version,
 			website: yaml.website,
 			category: yaml.category,
 			assumption: yaml.assumption,

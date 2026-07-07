@@ -3,6 +3,7 @@ export type NistLevel = 'Pre-Quantum' | 1 | 2 | 3 | 4 | 5;
 export interface Scheme {
 	scheme: string;
 	status: string;
+	version: string;
 	website: string;
 	category: string;
 	assumption: string;

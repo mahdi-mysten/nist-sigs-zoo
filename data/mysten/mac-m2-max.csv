@@ -1,9 +1,19 @@
-name,family,security_level,std,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519
-Ed25519,Pre-quantum (baseline),,pre-quantum,32,64,32,32125,27375,44375,,1000,1.0
-Falcon-512,Lattice / NTRU (Falcon),1,FIPS 206 (draft),897,666,,,,16042,,1000,0.4
-Falcon-512 (PQClean C),Lattice / NTRU (Falcon),1,FIPS 206 (draft),897,666,1281,4259791,144000,19542,,1000,0.4
-ML-DSA-44,Lattice / MLWE-MSIS (ML-DSA),2,FIPS (final),1312,2420,32,35125,89958,35541,,1000,0.8
-SLH-DSA-SHAKE-128s,Hash-based (SLH-DSA),1,FIPS (final),32,7856,64,129455667,991862791,980500,,1000,22.1
-SLH-DSA-SHAKE-128f,Hash-based (SLH-DSA),1,FIPS (final),32,17088,64,2051708,48020167,2845250,,1000,64.1
-SLH-DSA-SHA2-128s,Hash-based (SLH-DSA),1,FIPS (final),32,7856,64,102705500,783764459,778500,,1000,17.5
-SLH-DSA-SHA2-128f,Hash-based (SLH-DSA),1,FIPS (final),32,17088,64,1617167,37558334,2221792,,1000,50.1
+# pq-sig-bench results (github.com/mahdi-mysten/pq-sig-bench), measured through
+# fastcrypto on the Apple M2 Max — the same stack a Sui validator runs today.
+# Verify = median of 1000 iterations, keygen/sign of 100. Ratios are intra-run.
+scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean
+Ed25519,fastcrypto (baseline),32,64,32,10417,11250,27959,,1000,1.00,—
+FN-DSA-512,Falcon-512,897,666,,,,13208,,1000,0.47,0.65
+FN-DSA-512,Falcon-512 (PQClean C),897,666,1281,4104500,144625,20416,,1000,0.73,1.00
+ML-DSA-44,libcrux,1312,2420,2560,36625,106958,35583,,1000,1.27,1.76
+ML-DSA-44,RustCrypto ml-dsa,1312,2420,32,79583,140500,24083,,1000,0.86,1.19
+ML-DSA-44,fips204,1312,2420,2560,77791,168625,54250,,1000,1.94,2.68
+ML-DSA-44,PQClean C,1312,2420,2560,21333,49083,20250,,1000,0.72,1.00
+ML-DSA-44,aws-lc-rs,1312,2420,32,17917,37000,14416,,1000,0.52,0.71
+# SLH-DSA rows are carried over from the earlier pq-bench run on this same machine
+# (that run's own Ed25519 baseline: 44375 ns) — the pq-sig-bench harness does not
+# bench SLH-DSA yet. Their vs_ed25519 ratios are intra-run against that baseline.
+SLH-DSA-SHAKE-128s,earlier pq-bench run,32,7856,64,129455667,991862791,980500,,1000,22.1,
+SLH-DSA-SHAKE-128f,earlier pq-bench run,32,17088,64,2051708,48020167,2845250,,1000,64.1,
+SLH-DSA-SHA2-128s,earlier pq-bench run,32,7856,64,102705500,783764459,778500,,1000,17.5,
+SLH-DSA-SHA2-128f,earlier pq-bench run,32,17088,64,1617167,37558334,2221792,,1000,50.1,
