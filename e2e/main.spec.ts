@@ -78,37 +78,40 @@ test.describe('Sui on-chain lens', () => {
 		await expect(page.getByRole('button', { name: 'Sui-validator server' })).toBeVisible();
 	});
 
-	test('measured rows and zoo reference marker are shown', async ({ page }) => {
+	test('shows the measured FIPS-track rows, no on-ramp schemes', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.getByText('Ed25519', { exact: true })).toBeVisible();
 		await expect(lens.getByText('ML-DSA-44', { exact: true })).toBeVisible();
-		await expect(lens.getByText('zoo reference data (i7-12650H, rdtsc)')).toBeVisible();
+		// On-ramp reference rows are gone from the lens (they remain in the zoo table below)
+		await expect(lens.getByText('zoo reference data (i7-12650H, rdtsc)')).toHaveCount(0);
+		await expect(lens.getByText('HAWK', { exact: true })).toHaveCount(0);
+		await expect(lens.getByText('SQIsign', { exact: true })).toHaveCount(0);
 	});
 
-	test('lens table folds Parameter Set into Scheme and ends with Details', async ({ page }) => {
+	test('lens table has the lean column set ending with Assurance', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.locator('table thead th')).toHaveText([
-			'Scheme', 'Category', 'Status', 'Level',
-			'pk (B)', 'sig (B)', 'pk+sig (B)', 'Sign', 'Verify (median)', 'vs Ed25519', 'Details',
+			'Scheme', 'Std', 'pk+sig (B)', 'Verify', 'vs Ed25519', 'Assurance',
 		]);
 	});
 
-	test('ML-DSA-44 row is the average of five implementations', async ({ page }) => {
+	test('ML-DSA-44 verify is the average of five implementations', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
-		await expect(lens.getByText('(avg of 5)')).toBeVisible();
-		await expect(lens.getByText('mean of five independent implementations')).toBeVisible();
+		await expect(lens.getByText('(avg 5)')).toBeVisible();
+		await expect(lens.getByText('mean of five implementations')).toBeVisible();
 	});
 
-	test('qualitative Details column renders decision flags', async ({ page }) => {
+	test('Assurance column renders per-scheme badges', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
-		// Falcon's implementation-risk flag is the canonical example; the verified
-		// detail lives in the flag's tooltip, not the visible text
-		await expect(lens.getByText('Hard to sign safely', { exact: true })).toBeVisible();
-		await expect(lens.locator('[title*="floating-point Gaussian sampler"]')).toHaveCount(1);
+		await expect(lens.getByText('KAT-gated', { exact: true })).toBeVisible();
+		await expect(lens.getByText('Formally verified (libcrux)', { exact: true })).toBeVisible();
+		await expect(lens.getByText('ACVP-gated', { exact: true }).first()).toBeVisible();
+		// The KAT-gated term is explained in the pill tooltip
+		await expect(lens.locator('[title*="Known-Answer Tests"]')).toHaveCount(1);
 	});
 
 	test('Ed25519 batch-verification caveat is stated', async ({ page }) => {
@@ -117,10 +120,12 @@ test.describe('Sui on-chain lens', () => {
 		await expect(lens.getByText(/batch-verify Ed25519/)).toBeVisible();
 	});
 
-	test('SLH-DSA measured rows are present, without dagger markers', async ({ page }) => {
+	test('shows only the SHAKE SLH-DSA variants, no dagger', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.getByText('SLH-DSA-SHAKE-128s', { exact: true })).toBeVisible();
+		await expect(lens.getByText('SLH-DSA-SHAKE-128f', { exact: true })).toBeVisible();
+		await expect(lens.getByText('SLH-DSA-SHA2-128s', { exact: true })).toHaveCount(0);
 		await expect(lens.getByText('†')).toHaveCount(0);
 	});
 
@@ -130,16 +135,6 @@ test.describe('Sui on-chain lens', () => {
 		await expect(lens.getByText('FIPS 204', { exact: true })).toBeVisible();
 		await expect(lens.getByText('FIPS 205', { exact: true }).first()).toBeVisible();
 		await expect(lens.getByText('FIPS 206 pending', { exact: true })).toBeVisible();
-	});
-
-	test('lens Vega figure renders alongside the zoo scatter', async ({ page }) => {
-		await page.goto('/');
-		// Two charts on the page now (lens + zoo scatter); wait for both to draw
-		await page.waitForFunction(
-			() =>
-				[...document.querySelectorAll('svg')].filter((s) => s.querySelector('g')).length >= 2,
-			{ timeout: 15_000 }
-		);
 	});
 
 	test('server toggle shows pending state until a server run is imported', async ({ page }) => {

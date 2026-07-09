@@ -17,7 +17,7 @@ Deploy: `npm run build` → `dist/`.
 
 - **Framework**: SvelteKit 2 + Svelte 5 (runes mode), adapter-static → `dist/`
 - **CSS**: Tailwind CSS v4 via `@tailwindcss/vite`
-- **Charts**: Vega-Lite (zoo scatter + Sui lens footprint-vs-verify figure)
+- **Charts**: Vega-Lite (zoo scatter on the main + advanced pages)
 - **Language**: TypeScript throughout
 
 ## Development
@@ -53,7 +53,7 @@ Do not import from `$app/*`, `$lib/schemeData`, or `$lib/mystenBenchData` (these
 
 Playwright against a built static site. The playwright config runs `npm run build && npm run preview -- --port 4175` automatically (`reuseExistingServer: true`, so a running preview server is reused for speed).
 
-- `main.spec.ts` — main page: heading, Sui lens (table, host toggle, pending state), Vega chart render, advanced link, filter levels, traffic-light shading, table
+- `main.spec.ts` — main page: heading, Sui lens (lean columns, host toggle, pending state, assurance badges, FIPS chips), Vega chart render, advanced link, filter levels, traffic-light shading, table
 - `advanced.spec.ts` — advanced page: axis controls, heading updates, URL encoding/restoration, filter panel
 
 **Adding E2E tests:** add to `e2e/main.spec.ts` or `e2e/advanced.spec.ts`, or create a new `e2e/<feature>.spec.ts`.
@@ -179,7 +179,7 @@ src/
 │   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
 │   ├── mystenBench.ts    # pq-sig-bench CSV parser + per-scheme impl averaging (pure)
 │   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench[host]
-│   ├── suiNotes.ts       # qualitative decision factors for the lens Details column
+│   ├── suiNotes.ts       # per-scheme implementation-assurance badges for the lens
 │   ├── filterStore.ts    # Svelte writable store + derived filteredRows + URL codec
 │   ├── schemeData.ts     # import.meta.glob loader → allSchemeData: SchemeYaml[]
 │   ├── themeStore.ts     # dark/light/system theme store → localStorage
@@ -190,8 +190,7 @@ src/
 │       ├── RangeField.svelte     # reusable number input
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
-│       ├── SuiLens.svelte        # Sui on-chain lens: host toggle, measured+reference table (merged Scheme column + Details), notes
-│       └── SuiLensPlot.svelte    # Vega-Lite pk+sig vs verify-µs scatter (points prop)
+│       └── SuiLens.svelte        # Sui on-chain lens: lean 6-column measured table (Scheme·Std·pk+sig·Verify·vs Ed25519·Assurance)
 └── routes/
     ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
     ├── +page.ts          # load: processYamlSchemes('round-3', {useLatestVersion:true}), createFilterStore
@@ -227,35 +226,32 @@ tests/
 
 ### Sui On-Chain Lens
 
-`SuiLens.svelte` on the main page. Its table mirrors `SchemeTable`'s header styling
-and cell formatting (via `$lib/format` + `$lib/trafficLight`) but **not** its column
-list: there is no Parameter Set column (the measured name *is* the set, so it's
-folded into Scheme), and the lens extras — host-measured Verify (median),
-vs Ed25519, and a qualitative **Details** column — come last:
-- Measured rows come from `data/mysten/mac-m2-max.csv`, one display row per scheme
-  via `aggregateByScheme()`; the host toggle only swaps which host's run feeds the
-  sign/verify/ratio columns (sizes are host-independent).
-- ML-DSA-44 shows the mean of its five implementations (`(avg of 5)` marker;
-  per-impl spread in the cell tooltip). FN-DSA-512 is the exception: the row shows
-  fastcrypto's verifier with PQClean C in parentheses (same math, same bytes) —
-  PQClean never enters the FN-DSA row's averages.
+`SuiLens.svelte` on the main page — a deliberately minimal decision table, six
+columns: **Scheme · Std · pk+sig (B) · Verify · vs Ed25519 · Assurance**. It shows
+only the FIPS-track schemes we have measured through fastcrypto; the on-ramp
+candidates live in the full zoo table below, not here.
+- Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, ML-DSA-44,
+  SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The CSV still carries the SLH-DSA SHA2
+  variants; they're just not in this view.
+- Measured rows come from `data/mysten/mac-m2-max.csv`, one row per scheme via
+  `aggregateByScheme()`; the host toggle only swaps which host's run feeds the
+  verify/ratio columns (sizes are host-independent). Server placeholder → those
+  cells render "pending" with a pointer to `npm run import-bench`.
+- ML-DSA-44 verify is the mean of its five implementations (`(avg 5)` marker;
+  per-impl spread in the cell tooltip). FN-DSA-512 reports fastcrypto's verifier
+  only — PQClean is excluded from that row's average.
 - vs-Ed25519 ratios are the harness's own intra-run `vs_ed25519` column — never
-  recomputed. Rows carried from the earlier run (SLH-DSA) keep that run's ratios.
-  A footnote states the Ed25519 batching caveat: validators batch-verify Ed25519
-  (~2× amortized), no PQ scheme batches.
-- Status chips name the concrete standard: "FIPS 204"/"FIPS 205" from the picked
+  recomputed. A footnote states the Ed25519 batching caveat (validators batch-verify
+  Ed25519, ~2× amortized; no PQ scheme batches).
+- Std chips name the concrete standard: "FIPS 204"/"FIPS 205" from the picked
   version's label (`fipsChipLabel` in `$lib/format`), and "FIPS 206 pending" for
   Falcon via `PENDING_FIPS` in `$lib/constants` (same in `SchemeTable`).
-- The Details column renders compact flags (green strength / amber caveat / red
-  risk) from `src/lib/suiNotes.ts` — implementation risk, Rust ecosystem assurance
-  (audits/verification/FIPS validation), assumption maturity. The verified
-  specifics live in each flag's hover tooltip. Keyed by measured name, falling
-  back to zoo scheme name.
-- When the selected host's CSV has no data rows (server placeholder), sign/verify/
-  ratio cells render as "pending" with a pointer to `npm run import-bench`.
-- Zoo reference rows (HAWK-512, MAYO-one, UOV-Is-pkc, SQIsign-I, FAEST-128s) are
-  resolved from the curated YAML via `ZOO_REFERENCE_SETS`; their timings are
-  upstream's i7-12650H rdtsc bench, so they are display-only and never enter ratios.
+- The **Assurance** column (`src/lib/suiNotes.ts`) is the practical "can we trust
+  the code" axis: one colored pill per scheme — green (`strong`: audited / formally
+  verified) or amber (`mid`: correctness-gated on NIST vectors but unaudited) — with
+  a muted "unaudited" suffix where no independent audit exists, and the term
+  explained in the pill's tooltip. Ed25519 = Audited; FN-DSA-512 = KAT-gated
+  (Round-3 KATs); ML-DSA-44 = Formally verified (libcrux); SLH-DSA = ACVP-gated.
 
 ### Filter Store
 
