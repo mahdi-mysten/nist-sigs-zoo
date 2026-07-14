@@ -97,21 +97,37 @@ test.describe('Sui on-chain lens', () => {
 		]);
 	});
 
-	test('ML-DSA-44 verify is the average of five implementations', async ({ page }) => {
+	test('ML-DSA is shown at all three benched security levels', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
-		await expect(lens.getByText('(avg 5)')).toBeVisible();
-		await expect(lens.getByText('mean of five implementations')).toBeVisible();
+		await expect(lens.getByText('ML-DSA-44', { exact: true })).toBeVisible();
+		await expect(lens.getByText('ML-DSA-65', { exact: true })).toBeVisible();
+		await expect(lens.getByText('ML-DSA-87', { exact: true })).toBeVisible();
+	});
+
+	test('FN-DSA-1024 is shown as a PQClean reference row', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		await expect(lens.getByText('FN-DSA-1024', { exact: true })).toBeVisible();
+		await expect(lens.getByText('Reference impl (PQClean C)', { exact: true })).toBeVisible();
 	});
 
 	test('Assurance column renders per-scheme badges', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.getByText('KAT-gated', { exact: true })).toBeVisible();
-		await expect(lens.getByText('Formally verified (libcrux)', { exact: true })).toBeVisible();
+		await expect(lens.getByText('Formally verified (mldsa-native)', { exact: true }).first()).toBeVisible();
 		await expect(lens.getByText('ACVP-gated', { exact: true }).first()).toBeVisible();
 		// The KAT-gated term is explained in the pill tooltip
 		await expect(lens.locator('[title*="Known-Answer Tests"]')).toHaveCount(1);
+	});
+
+	test('unaudited suffix appears even on the strong-tier ML-DSA pill', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		// Only Ed25519 is genuinely audited; every PQ row (7 of 8) carries the suffix,
+		// including "Formally verified" ML-DSA — proofs aren't a substitute for an audit.
+		await expect(lens.getByText('unaudited', { exact: true })).toHaveCount(7);
 	});
 
 	test('Ed25519 batch-verification caveat is stated', async ({ page }) => {
@@ -132,9 +148,10 @@ test.describe('Sui on-chain lens', () => {
 	test('status chips carry the FIPS number of each standard', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
-		await expect(lens.getByText('FIPS 204', { exact: true })).toBeVisible();
+		// Multiple rows share a standard (3 ML-DSA levels, 2 Falcon sizes) — .first() is enough
+		await expect(lens.getByText('FIPS 204', { exact: true }).first()).toBeVisible();
 		await expect(lens.getByText('FIPS 205', { exact: true }).first()).toBeVisible();
-		await expect(lens.getByText('FIPS 206 pending', { exact: true })).toBeVisible();
+		await expect(lens.getByText('FIPS 206 pending', { exact: true }).first()).toBeVisible();
 	});
 
 	test('server toggle shows pending state until a server run is imported', async ({ page }) => {

@@ -115,23 +115,29 @@ The YAML files are bundled at build time via a Vite plugin (`vite.config.ts`) an
 ### Mysten measured benchmarks — `data/mysten/*.csv`
 
 Our own runs of the [pq-sig-bench](https://github.com/mahdi-mysten/pq-sig-bench)
-harness, measured **through fastcrypto** — the same stack a Sui validator runs.
-One CSV per host: `mac-m2-max.csv` (Apple M2 Max) and `server.csv`
-(Sui-validator-class server; header-only placeholder until the server run is
-imported). One row per **(scheme, implementation)** — ML-DSA-44 has five rows
-(libcrux, RustCrypto ml-dsa, fips204, PQClean C, aws-lc-rs); the UI averages them.
+harness, measured **through fastcrypto** — currently the
+[`mahdi/fn-dsa-512`](https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512)
+branch, pre-merge — the stack a Sui validator would run. One CSV per host:
+`mac-m2-max.csv` (Apple M2 Max) and `server.csv` (Sui-validator-class server;
+header-only placeholder until the server run is imported). One row per
+**(scheme, implementation)**; the harness now benches one implementation per
+scheme — the one Sui would actually run — except FN-DSA-1024, which has no
+fastcrypto implementation yet and is measured via PQClean's reference C instead.
+`aggregateByScheme()` still averages when a scheme has more than one impl row
+(kept generic — ML-DSA used to be benched across five implementations and may
+be again).
 
 Header (must match `MYSTEN_BENCH_HEADER` in `src/lib/mystenBench.ts` and the
 pq-sig-bench harness output exactly):
 
 ```
-scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean
+scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519
 ```
 
 `#`-comment lines and blank lines are ignored. Verify medians are over 1000
-iterations; keygen/sign over 100. `vs_ed25519`/`vs_pqclean` are harness-computed,
-**intra-run** ratios — never recompute them across runs or hosts. Import new runs
-with `npm run import-bench -- <results.csv> <mac-m2-max|server>`
+iterations; keygen/sign over 100. `vs_ed25519` is the harness-computed,
+**intra-run** ratio against the Ed25519 row — never recompute it across runs or
+hosts. Import new runs with `npm run import-bench -- <results.csv> <mac-m2-max|server>`
 (`scripts/import-mysten-bench.js` — validates the header and row count, then writes
 `data/mysten/<host>.csv`). Importing overwrites the host file: rows carried over
 from older runs must be re-appended by hand.
@@ -230,16 +236,19 @@ tests/
 columns: **Scheme · Std · pk+sig (B) · Verify · vs Ed25519 · Assurance**. It shows
 only the FIPS-track schemes we have measured through fastcrypto; the on-ramp
 candidates live in the full zoo table below, not here.
-- Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, ML-DSA-44,
-  SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The CSV still carries the SLH-DSA SHA2
-  variants; they're just not in this view.
+- Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, FN-DSA-1024,
+  ML-DSA-44, ML-DSA-65, ML-DSA-87, SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The
+  CSV still carries the SLH-DSA SHA2 variants; they're just not in this view.
 - Measured rows come from `data/mysten/mac-m2-max.csv`, one row per scheme via
   `aggregateByScheme()`; the host toggle only swaps which host's run feeds the
   verify/ratio columns (sizes are host-independent). Server placeholder → those
   cells render "pending" with a pointer to `npm run import-bench`.
-- ML-DSA-44 verify is the mean of its five implementations (`(avg 5)` marker;
-  per-impl spread in the cell tooltip). FN-DSA-512 reports fastcrypto's verifier
-  only — PQClean is excluded from that row's average.
+- FN-DSA-512 and all three ML-DSA levels are each a single measured
+  implementation (fastcrypto; aws-lc-rs) — the `(avg N)` marker and impl-spread
+  tooltip only appear if a scheme's CSV rows ever span more than one impl again.
+  FN-DSA-1024 has no fastcrypto implementation yet, so it measures PQClean's
+  reference C directly — a different codebase than Sui would ship, flagged as
+  such in its Assurance pill.
 - vs-Ed25519 ratios are the harness's own intra-run `vs_ed25519` column — never
   recomputed. A footnote states the Ed25519 batching caveat (validators batch-verify
   Ed25519, ~2× amortized; no PQ scheme batches).
@@ -248,10 +257,13 @@ candidates live in the full zoo table below, not here.
   Falcon via `PENDING_FIPS` in `$lib/constants` (same in `SchemeTable`).
 - The **Assurance** column (`src/lib/suiNotes.ts`) is the practical "can we trust
   the code" axis: one colored pill per scheme — green (`strong`: audited / formally
-  verified) or amber (`mid`: correctness-gated on NIST vectors but unaudited) — with
-  a muted "unaudited" suffix where no independent audit exists, and the term
-  explained in the pill's tooltip. Ed25519 = Audited; FN-DSA-512 = KAT-gated
-  (Round-3 KATs); ML-DSA-44 = Formally verified (libcrux); SLH-DSA = ACVP-gated.
+  verified) or amber (`mid`: correctness-gated but unaudited, or not the
+  implementation Sui would ship) — with a muted "unaudited" suffix where no
+  independent audit exists, and the term explained in the pill's tooltip.
+  Ed25519 = Audited; FN-DSA-512 = KAT-gated (Round-3 KATs + PQClean cross-verify);
+  FN-DSA-1024 = Reference impl (PQClean C, no fastcrypto impl yet); ML-DSA-44/65/87
+  = Formally verified (aws-lc-rs delegates to mldsa-native's CBMC + HOL Light
+  proofs); SLH-DSA = ACVP-gated.
 
 ### Filter Store
 

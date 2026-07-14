@@ -7,47 +7,38 @@ import {
 } from '$lib/mystenBench';
 
 const SAMPLE = `${MYSTEN_BENCH_HEADER}
-Ed25519,fastcrypto (baseline),32,64,32,10417,11250,27959,,1000,1.00,—
-FN-DSA-512,Falcon-512,897,666,,,,13208,,1000,0.47,0.65
-FN-DSA-512,Falcon-512 (PQClean C),897,666,1281,4104500,144625,20416,,1000,0.73,1.00
-ML-DSA-44,libcrux,1312,2420,2560,36625,106958,35583,,1000,1.27,1.76
-ML-DSA-44,aws-lc-rs,1312,2420,32,17917,37000,14416,,1000,0.52,0.71
-SLH-DSA-SHAKE-128s,${OLDER_RUN_IMPL},32,7856,64,129455667,991862791,980500,,1000,22.1,
+Ed25519,fastcrypto (baseline),32,64,,10400,11200,27900,,1000,1.00
+FN-DSA-512,fastcrypto,897,666,,8330000,2750000,13200,,1000,0.47
+ML-DSA-44,aws-lc-rs-a,1312,2420,,18000,46700,14500,,1000,0.52
+ML-DSA-44,aws-lc-rs-b,1312,2420,,20000,50000,15000,,1000,0.54
+SLH-DSA-SHAKE-128s,${OLDER_RUN_IMPL},32,7856,64,129455667,991862791,980500,,1000,22.1
 `;
 
 describe('parseMystenBenchCsv', () => {
 	it('parses rows with numeric and empty fields', () => {
 		const rows = parseMystenBenchCsv(SAMPLE);
-		expect(rows).toHaveLength(6);
+		expect(rows).toHaveLength(5);
 
-		const pqclean = rows[2];
-		expect(pqclean.scheme).toBe('FN-DSA-512');
-		expect(pqclean.impl).toBe('Falcon-512 (PQClean C)');
-		expect(pqclean.pkLen).toBe(897);
-		expect(pqclean.sigLen).toBe(666);
-		expect(pqclean.verifyNs).toBe(20416);
-		expect(pqclean.verifyCyc).toBeNull(); // empty column
-		expect(pqclean.verifyIters).toBe(1000);
-		expect(pqclean.vsEd25519).toBe(0.73);
-		expect(pqclean.vsPqclean).toBe(1.0);
+		const falcon = rows[1];
+		expect(falcon.scheme).toBe('FN-DSA-512');
+		expect(falcon.impl).toBe('fastcrypto');
+		expect(falcon.pkLen).toBe(897);
+		expect(falcon.sigLen).toBe(666);
+		expect(falcon.verifyNs).toBe(13200);
+		expect(falcon.verifyCyc).toBeNull(); // empty column
+		expect(falcon.verifyIters).toBe(1000);
+		expect(falcon.vsEd25519).toBe(0.47);
 	});
 
-	it('non-numeric vs_pqclean ("—" on the baseline row) parses to null', () => {
+	it('empty sk_len/verify_cyc parse to null', () => {
 		const [ed] = parseMystenBenchCsv(SAMPLE);
-		expect(ed.vsPqclean).toBeNull();
-		expect(ed.vsEd25519).toBe(1.0);
-	});
-
-	it('empty keygen/sign parse to null (verify-only fastcrypto rows)', () => {
-		const falcon = parseMystenBenchCsv(SAMPLE)[1];
-		expect(falcon.skLen).toBeNull();
-		expect(falcon.keygenNs).toBeNull();
-		expect(falcon.signNs).toBeNull();
-		expect(falcon.verifyNs).toBe(13208);
+		expect(ed.skLen).toBeNull();
+		expect(ed.verifyCyc).toBeNull();
+		expect(ed.keygenNs).toBe(10400);
 	});
 
 	it('skips # comments and blank lines', () => {
-		const csv = `# leading comment\n\n${MYSTEN_BENCH_HEADER}\n# mid comment\nEd25519,fastcrypto,32,64,32,1,1,100,,1000,1.00,—\n\n`;
+		const csv = `# leading comment\n\n${MYSTEN_BENCH_HEADER}\n# mid comment\nEd25519,fastcrypto,32,64,,1,1,100,,1000,1.00\n\n`;
 		expect(parseMystenBenchCsv(csv)).toHaveLength(1);
 	});
 
@@ -66,15 +57,15 @@ describe('parseMystenBenchCsv', () => {
 		);
 	});
 
-	it('rejects the previous (pre-impl-column) header format', () => {
+	it('rejects the previous (vs_pqclean-column) header format', () => {
 		const old =
-			'name,family,security_level,std,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519';
+			'scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean';
 		expect(() => parseMystenBenchCsv(`${old}\n`)).toThrow(/Unexpected pq-sig-bench CSV header/);
 	});
 
 	it('tolerates CRLF line endings', () => {
 		const csv = SAMPLE.replaceAll('\n', '\r\n');
-		expect(parseMystenBenchCsv(csv)).toHaveLength(6);
+		expect(parseMystenBenchCsv(csv)).toHaveLength(5);
 	});
 });
 
@@ -92,22 +83,22 @@ describe('aggregateByScheme', () => {
 	it('averages timing fields over the impls that report them', () => {
 		const aggs = aggregateByScheme(parseMystenBenchCsv(SAMPLE));
 		const mldsa = aggs.find((a) => a.scheme === 'ML-DSA-44')!;
-		expect(mldsa.verifyNs).toBeCloseTo((35583 + 14416) / 2, 5);
-		expect(mldsa.signNs).toBeCloseTo((106958 + 37000) / 2, 5);
-		expect(mldsa.vsEd25519).toBeCloseTo((1.27 + 0.52) / 2, 5);
+		expect(mldsa.verifyNs).toBeCloseTo((14500 + 15000) / 2, 5);
+		expect(mldsa.signNs).toBeCloseTo((46700 + 50000) / 2, 5);
+		expect(mldsa.vsEd25519).toBeCloseTo((0.52 + 0.54) / 2, 5);
 		expect(mldsa.impls).toHaveLength(2);
 	});
 
-	it('a verify-only impl does not drag sign/keygen means to null or zero', () => {
+	it('single-impl schemes pass through unchanged', () => {
 		const aggs = aggregateByScheme(parseMystenBenchCsv(SAMPLE));
 		const falcon = aggs.find((a) => a.scheme === 'FN-DSA-512')!;
-		// fastcrypto row has no sign/keygen; the mean falls back to PQClean's values
-		expect(falcon.signNs).toBe(144625);
-		expect(falcon.keygenNs).toBe(4104500);
-		expect(falcon.verifyNs).toBeCloseTo((13208 + 20416) / 2, 5);
+		expect(falcon.signNs).toBe(2750000);
+		expect(falcon.keygenNs).toBe(8330000);
+		expect(falcon.verifyNs).toBe(13200);
+		expect(falcon.impls).toHaveLength(1);
 	});
 
-	it('single-impl schemes pass through unchanged', () => {
+	it('older-run rows pass through unchanged', () => {
 		const aggs = aggregateByScheme(parseMystenBenchCsv(SAMPLE));
 		const slh = aggs.find((a) => a.scheme === 'SLH-DSA-SHAKE-128s')!;
 		expect(slh.verifyNs).toBe(980500);
@@ -116,7 +107,7 @@ describe('aggregateByScheme', () => {
 	});
 
 	it('all-null fields stay null', () => {
-		const csv = `${MYSTEN_BENCH_HEADER}\nX,only,10,20,,,,,,1000,,\n`;
+		const csv = `${MYSTEN_BENCH_HEADER}\nX,only,10,20,,,,,,1000,\n`;
 		const [agg] = aggregateByScheme(parseMystenBenchCsv(csv));
 		expect(agg.keygenNs).toBeNull();
 		expect(agg.signNs).toBeNull();

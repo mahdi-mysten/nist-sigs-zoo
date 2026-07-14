@@ -1,7 +1,7 @@
 // Mysten measured benchmarks (pq-sig-bench harness, measured through fastcrypto —
 // the same stack a Sui validator runs). One CSV row per (scheme, implementation).
 export const MYSTEN_BENCH_HEADER =
-	'scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean';
+	'scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519';
 
 // Impl label marking rows carried over from the previous harness run. Their
 // vs_ed25519 ratios were computed against that run's own Ed25519 baseline and
@@ -20,7 +20,6 @@ export interface MystenBenchRow {
 	verifyCyc: number | null;
 	verifyIters: number | null;
 	vsEd25519: number | null;
-	vsPqclean: number | null;
 }
 
 // One row per scheme with timing fields averaged over the implementations that
@@ -70,7 +69,6 @@ export function parseMystenBenchCsv(text: string): MystenBenchRow[] {
 			verifyCyc: num(f[8]),
 			verifyIters: num(f[9]),
 			vsEd25519: num(f[10]),
-			vsPqclean: num(f[11]),
 		};
 	});
 }

@@ -15,30 +15,22 @@
 	const DISPLAY_SCHEMES = [
 		'Ed25519',
 		'FN-DSA-512',
+		'FN-DSA-1024',
 		'ML-DSA-44',
+		'ML-DSA-65',
+		'ML-DSA-87',
 		'SLH-DSA-SHAKE-128s',
 		'SLH-DSA-SHAKE-128f',
 	];
 
 	let host = $state<MystenHost>('mac-m2-max');
 
-	// FN-DSA ships two implementations of one verifier: fastcrypto's Montgomery-NTT
-	// Rust (what a validator would actually run) and PQClean's reference C. The row
-	// reports fastcrypto only, so PQClean is excluded from the average. Every other
-	// multi-impl scheme (ML-DSA) averages across all of its implementations.
-	const FALCON_SCHEME = 'FN-DSA-512';
-	const isPqclean = (r: MystenBenchRow) => r.impl.includes('PQClean');
-
+	// pq-sig-bench benches one implementation per row — the one Sui would actually
+	// run. aggregateByScheme() collapses to one row per scheme, which is a no-op
+	// today but keeps this forward-compatible if a scheme is ever multi-impl again
+	// (ML-DSA used to be, see the harness README's background section).
 	function lensRows(rows: MystenBenchRow[]): MystenSchemeAgg[] {
-		const aggs = aggregateByScheme(rows).map((agg) => {
-			// For FN-DSA, re-aggregate over the fastcrypto impl(s) alone.
-			if (agg.scheme === FALCON_SCHEME && agg.impls.some((r) => !isPqclean(r))) {
-				const [ours] = aggregateByScheme(agg.impls.filter((r) => !isPqclean(r)));
-				return { ...ours, impls: agg.impls.filter((r) => !isPqclean(r)) };
-			}
-			return agg;
-		});
-		// Restrict and order to the display set.
+		const aggs = aggregateByScheme(rows);
 		return DISPLAY_SCHEMES.map((s) => aggs.find((a) => a.scheme === s)).filter(
 			(a): a is MystenSchemeAgg => a != null
 		);
@@ -61,7 +53,10 @@
 	const MEASURED_SCHEME: Record<string, string> = {
 		Ed25519: 'EdDSA',
 		'FN-DSA-512': 'Falcon',
+		'FN-DSA-1024': 'Falcon',
 		'ML-DSA-44': 'ML-DSA',
+		'ML-DSA-65': 'ML-DSA',
+		'ML-DSA-87': 'ML-DSA',
 		'SLH-DSA-SHAKE-128s': 'SLH-DSA',
 		'SLH-DSA-SHAKE-128f': 'SLH-DSA',
 	};
@@ -135,7 +130,7 @@
 				Sui on-chain lens
 			</h2>
 			<p class="mt-1 text-xs text-pqs-steel dark:text-pqs-bluegray">
-				The FIPS-track signature candidates, measured through fastcrypto — the stack a Sui validator runs.
+				The FIPS-track signature candidates, measured through fastcrypto — the stack a Sui validator would run.
 			</p>
 		</div>
 
@@ -231,13 +226,15 @@
 
 	<p class="mt-2 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 		Measured: <a href="https://github.com/mahdi-mysten/pq-sig-bench" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">pq-sig-bench</a>
-		through fastcrypto — the stack a Sui validator runs — median of 1000 verify iterations, {hostMeta.machine}.
+		through fastcrypto (<a href="https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">mahdi/fn-dsa-512</a> branch, pre-merge)
+		— the stack a Sui validator would run — median of 1000 verify iterations, {hostMeta.machine}.
 	</p>
 	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 		Sui validators batch-verify Ed25519, roughly halving its amortized per-signature cost; no PQ
-		candidate batches, so the practical on-chain gap is about 2× the vs-Ed25519 column. ML-DSA-44
-		verify is the mean of five implementations (hover the cell for the spread); FN-DSA-512 reports
-		fastcrypto's verifier only. Assurance names the strongest available implementation and whether it
-		has an independent audit — hover a pill for the specifics.
+		candidate batches, so the practical on-chain gap is about 2× the vs-Ed25519 column. Each row
+		measures one implementation — the one Sui would actually run — except FN-DSA-1024, which has no
+		fastcrypto implementation yet and is shown via PQClean's portable reference C for scale. Assurance
+		names the implementation behind each row and whether it has an independent audit — hover a pill
+		for the specifics.
 	</p>
 </section>

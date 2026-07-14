@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 // pq-sig-bench harness emits — all three must agree byte-for-byte or the site
 // parser rejects the file.
 const EXPECTED_HEADER =
-	'scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519,vs_pqclean';
+	'scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519';
 
 const HOSTS = ['mac-m2-max', 'server'];
 

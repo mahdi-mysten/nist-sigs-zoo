@@ -1,3 +1,8 @@
+- date: '2026-07-14'
+  type: update
+  description: "Sui lens updated with a new <a href=\"https://github.com/mahdi-mysten/pq-sig-bench\">pq-sig-bench</a> run against fastcrypto's <a href=\"https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512\">mahdi/fn-dsa-512</a> branch (pre-merge). ML-DSA narrowed from a five-implementation average to aws-lc-rs alone (which delegates to mldsa-native, carrying CBMC + HOL Light proofs) but expanded to all three benched levels, 44/65/87. Added FN-DSA-1024 as a PQClean-reference row (no fastcrypto implementation yet). FN-DSA-512's row now includes keygen/sign, measured through fastcrypto's public sign API (PQClean under the hood, re-verified before returning)."
+  schemes: [Falcon, ML-DSA]
+
 - date: '2026-07-07'
   type: update
   description: "Sui lens re-based on a new <a href=\"https://github.com/mahdi-mysten/pq-sig-bench\">pq-sig-bench</a> run measured through fastcrypto on the Apple M2 Max: FN-DSA-512 verify 13.2 µs (0.47× Ed25519), ML-DSA-44 shown as the mean of five implementations (libcrux, RustCrypto ml-dsa, fips204, PQClean C, aws-lc-rs). Added a qualitative Details column (implementation risk, Rust ecosystem assurance, assumption maturity). SLH-DSA recategorized from Symmetric to Hash-based (FAEST remains Symmetric)."
