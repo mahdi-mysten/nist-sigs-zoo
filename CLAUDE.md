@@ -53,7 +53,7 @@ Do not import from `$app/*`, `$lib/schemeData`, or `$lib/mystenBenchData` (these
 
 Playwright against a built static site. The playwright config runs `npm run build && npm run preview -- --port 4175` automatically (`reuseExistingServer: true`, so a running preview server is reused for speed).
 
-- `main.spec.ts` — main page: heading, Sui lens (lean columns, host toggle, pending state, assurance badges, FIPS chips), Vega chart render, advanced link, filter levels, traffic-light shading, table
+- `main.spec.ts` — main page: heading, Sui lens (lean columns, assurance badges, FIPS chips), Vega chart render, advanced link, filter levels, traffic-light shading, table
 - `advanced.spec.ts` — advanced page: axis controls, heading updates, URL encoding/restoration, filter panel
 
 **Adding E2E tests:** add to `e2e/main.spec.ts` or `e2e/advanced.spec.ts`, or create a new `e2e/<feature>.spec.ts`.
@@ -117,15 +117,14 @@ The YAML files are bundled at build time via a Vite plugin (`vite.config.ts`) an
 Our own runs of the [pq-sig-bench](https://github.com/mahdi-mysten/pq-sig-bench)
 harness, measured **through fastcrypto** — currently the
 [`mahdi/fn-dsa-512`](https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512)
-branch, pre-merge — the stack a Sui validator would run. One CSV per host:
-`mac-m2-max.csv` (Apple M2 Max) and `server.csv` (Sui-validator-class server;
-header-only placeholder until the server run is imported). One row per
-**(scheme, implementation)**; the harness now benches one implementation per
-scheme — the one Sui would actually run — except FN-DSA-1024, which has no
-fastcrypto implementation yet and is measured via PQClean's reference C instead.
-`aggregateByScheme()` still averages when a scheme has more than one impl row
-(kept generic — ML-DSA used to be benched across five implementations and may
-be again).
+branch, pre-merge — the stack a Sui validator would run. One CSV:
+`mac-m2-max.csv` (Apple M2 Max — the only machine class the lens reports; there
+is no host toggle). One row per **(scheme, implementation)**; the harness now
+benches one implementation per scheme — the one Sui would actually run — except
+FN-DSA-1024, which has no fastcrypto implementation yet and is measured via
+PQClean's reference C instead. `aggregateByScheme()` still averages when a
+scheme has more than one impl row (kept generic — ML-DSA used to be benched
+across five implementations and may be again).
 
 Header (must match `MYSTEN_BENCH_HEADER` in `src/lib/mystenBench.ts` and the
 pq-sig-bench harness output exactly):
@@ -136,11 +135,11 @@ scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_
 
 `#`-comment lines and blank lines are ignored. Verify medians are over 1000
 iterations; keygen/sign over 100. `vs_ed25519` is the harness-computed,
-**intra-run** ratio against the Ed25519 row — never recompute it across runs or
-hosts. Import new runs with `npm run import-bench -- <results.csv> <mac-m2-max|server>`
-(`scripts/import-mysten-bench.js` — validates the header and row count, then writes
-`data/mysten/<host>.csv`). Importing overwrites the host file: rows carried over
-from older runs must be re-appended by hand.
+**intra-run** ratio against the Ed25519 row — never recompute it across runs.
+Import new runs with `npm run import-bench -- <results.csv>`
+(`scripts/import-mysten-bench.js` — validates the header and row count, then
+overwrites `data/mysten/mac-m2-max.csv` wholesale): rows carried over from
+older runs must be re-appended by hand.
 
 Carried-over rows (currently the four SLH-DSA rows in `mac-m2-max.csv`, from the
 earlier pq-bench run) use the impl label `earlier pq-bench run`
@@ -151,6 +150,44 @@ visual marker.
 Parsing (`parseMystenBenchCsv`) and per-scheme averaging (`aggregateByScheme` —
 means over the impls that report a field) live in `src/lib/mystenBench.ts` (pure,
 unit-tested); the `import.meta.glob` `?raw` loader is `src/lib/mystenBenchData.ts`.
+
+### TypeScript keygen/sign benchmark — `data/mysten/ts-bench.csv`
+
+The Sui lens's Keygen/Sign columns are a **separate measurement** from the Rust
+verify numbers above: validators run Rust, but signing happens client-side in
+wallets (browser extensions, mobile apps), which are typically JS/TS — this
+benches that stack instead, through the libraries a Sui wallet would actually
+use. `scripts/ts-bench.ts` benches all 8 `DISPLAY_SCHEMES`: Ed25519 via
+[`@mysten/sui`](https://www.npmjs.com/package/@mysten/sui)
+(`Ed25519Keypair.generate()` / `.sign()`, async), the PQ schemes via
+[`@noble/post-quantum`](https://github.com/paulmillr/noble-post-quantum)
+(`ml_dsa44/65/87`, `slh_dsa_shake_128s/128f`, `falcon512padded`/`falcon1024padded`
+— the **padded** Falcon variant, matching the fixed-size wire format
+`mac-m2-max.csv` already uses). Both libraries are devDependencies of this repo
+(not the SvelteKit app's runtime deps — only the script imports them).
+
+Method mirrors pq-sig-bench: warmup 2, median of N iterations, a fresh random
+key every keygen call and a fresh random message under one fixed key every sign
+call (ML-DSA and Falcon both use rejection sampling, so a fixed input would
+understate their real variance — same reasoning pq-sig-bench documents for its
+own sign benchmark). N is 1000 for schemes cheap enough to finish quickly, 100
+for the rest, and 30 specifically for SLH-DSA-SHAKE-128s (`SLOW_ITER_CAPS` in
+the script) — its sign is ~7.5 s/op in pure JS (no hardware SHA/SHAKE
+acceleration), so even 100 iterations would take ~12.5 minutes for that one
+scheme alone. The exact N used is written per row (`keygen_iters`/`sign_iters`),
+never assumed — the lens shows it in each cell's tooltip.
+
+Before timing anything, each scheme's pk/sig byte lengths are checked against
+the values already established in `mac-m2-max.csv` (`EXPECTED_SIZES` in the
+script) — this is what catches a wrong parameter set or wire variant (e.g.
+non-padded Falcon) before its timing gets trusted, mirroring pq-sig-bench's own
+self-check-before-timing gate.
+
+Requires Node ≥22.6 (runs the `.ts` file directly via native TypeScript
+support — no build step, no `tsx`/`ts-node`). Re-run: `node scripts/ts-bench.ts`
+(writes `data/mysten/ts-bench.csv` directly — no import step, unlike the Rust
+harness, since this script runs inside this repo). Parsing lives in
+`src/lib/tsBench.ts` (pure, unit-tested); the loader is `src/lib/tsBenchData.ts`.
 
 ### History
 
@@ -173,7 +210,7 @@ history, not the curated list.
 ```
 data/
 ├── schemes/          # one .yaml per curated signature scheme (source of truth)
-├── mysten/           # measured pq-bench CSVs per host (mac-m2-max, server)
+├── mysten/           # measured pq-sig-bench CSV (mac-m2-max) — no other host
 └── history.yaml      # chronological event log (attacks, updates, milestones)
 
 src/
@@ -184,7 +221,9 @@ src/
 │   ├── format.ts         # shared cell formatters (fmt, fmtCycles, fmtTime)
 │   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
 │   ├── mystenBench.ts    # pq-sig-bench CSV parser + per-scheme impl averaging (pure)
-│   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench[host]
+│   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench
+│   ├── tsBench.ts        # ts-bench.ts CSV parser (pure)
+│   ├── tsBenchData.ts    # import.meta.glob ?raw loader → tsBench
 │   ├── suiNotes.ts       # per-scheme implementation-assurance badges for the lens
 │   ├── filterStore.ts    # Svelte writable store + derived filteredRows + URL codec
 │   ├── schemeData.ts     # import.meta.glob loader → allSchemeData: SchemeYaml[]
@@ -196,7 +235,7 @@ src/
 │       ├── RangeField.svelte     # reusable number input
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
-│       └── SuiLens.svelte        # Sui on-chain lens: lean 6-column measured table (Scheme·Std·pk+sig·Verify·vs Ed25519·Assurance)
+│       └── SuiLens.svelte        # Sui on-chain lens: 8-column measured table (Scheme·Std·pk+sig·Verify·vs Ed25519·Keygen·Sign·Assurance)
 └── routes/
     ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
     ├── +page.ts          # load: processYamlSchemes('round-3', {useLatestVersion:true}), createFilterStore
@@ -209,12 +248,14 @@ src/
         └── +page.svelte  # timeline
 
 scripts/
-└── import-mysten-bench.js  # npm run import-bench -- <csv> <host>; header/row validation
+├── import-mysten-bench.js  # npm run import-bench -- <csv>; header/row validation
+└── ts-bench.ts              # node scripts/ts-bench.ts; keygen/sign benchmark → ts-bench.csv
 
 tests/
 ├── src/lib/__tests__/   # Vitest unit tests (vitest.config.ts)
 │   ├── data.test.ts
 │   ├── mystenBench.test.ts
+│   ├── tsBench.test.ts
 │   └── filterStore.test.ts
 └── e2e/                 # Playwright E2E tests (playwright.config.ts)
     ├── main.spec.ts
@@ -232,17 +273,19 @@ tests/
 
 ### Sui On-Chain Lens
 
-`SuiLens.svelte` on the main page — a deliberately minimal decision table, six
-columns: **Scheme · Std · pk+sig (B) · Verify · vs Ed25519 · Assurance**. It shows
-only the FIPS-track schemes we have measured through fastcrypto; the on-ramp
-candidates live in the full zoo table below, not here.
+`SuiLens.svelte` on the main page — a deliberately minimal decision table, eight
+columns: **Scheme · Std · pk+sig (B) · Verify · vs Ed25519 · Keygen · Sign ·
+Assurance**. It shows only the FIPS-track schemes we have measured through
+fastcrypto; the on-ramp candidates live in the full zoo table below, not here.
+Verify/vs-Ed25519 (validator-side, Rust) and Keygen/Sign (wallet-side,
+TypeScript — see the `ts-bench.csv` section above) are two independent
+measurements joined by scheme name; each degrades to `—` on its own if that
+scheme is missing from its respective CSV.
 - Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, FN-DSA-1024,
   ML-DSA-44, ML-DSA-65, ML-DSA-87, SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The
   CSV still carries the SLH-DSA SHA2 variants; they're just not in this view.
 - Measured rows come from `data/mysten/mac-m2-max.csv`, one row per scheme via
-  `aggregateByScheme()`; the host toggle only swaps which host's run feeds the
-  verify/ratio columns (sizes are host-independent). Server placeholder → those
-  cells render "pending" with a pointer to `npm run import-bench`.
+  `aggregateByScheme()`. No host toggle — the lens reports Mac M2 Max only.
 - FN-DSA-512 and all three ML-DSA levels are each a single measured
   implementation (fastcrypto; aws-lc-rs) — the `(avg N)` marker and impl-spread
   tooltip only appear if a scheme's CSV rows ever span more than one impl again.

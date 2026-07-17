@@ -3,10 +3,11 @@
 	import { fipsChipLabel, fmt, fmtTime } from '$lib/format';
 	import { processYamlSchemes } from '$lib/data';
 	import { allSchemeData } from '$lib/schemeData';
-	import { aggregateByScheme, type MystenBenchRow, type MystenSchemeAgg } from '$lib/mystenBench';
-	import { mystenBench, MYSTEN_HOSTS, type MystenHost } from '$lib/mystenBenchData';
+	import { aggregateByScheme, type MystenSchemeAgg } from '$lib/mystenBench';
+	import { mystenBench, BENCH_MACHINE } from '$lib/mystenBenchData';
+	import { tsBench } from '$lib/tsBenchData';
 	import { suiAssuranceFor, type SuiAssurance } from '$lib/suiNotes';
-	import { sizeCellClass, verifyCellClass } from '$lib/trafficLight';
+	import { signCellClass, sizeCellClass, verifyCellClass } from '$lib/trafficLight';
 	import type { Scheme } from '$lib/types';
 	import SecurityBadge from './SecurityBadge.svelte';
 
@@ -23,28 +24,32 @@
 		'SLH-DSA-SHAKE-128f',
 	];
 
-	let host = $state<MystenHost>('mac-m2-max');
-
 	// pq-sig-bench benches one implementation per row — the one Sui would actually
 	// run. aggregateByScheme() collapses to one row per scheme, which is a no-op
 	// today but keeps this forward-compatible if a scheme is ever multi-impl again
 	// (ML-DSA used to be, see the harness README's background section).
-	function lensRows(rows: MystenBenchRow[]): MystenSchemeAgg[] {
-		const aggs = aggregateByScheme(rows);
-		return DISPLAY_SCHEMES.map((s) => aggs.find((a) => a.scheme === s)).filter(
-			(a): a is MystenSchemeAgg => a != null
-		);
+	const aggs = aggregateByScheme(mystenBench);
+	const mystenByScheme = new Map(aggs.map((a) => [a.scheme, a]));
+
+	// Keygen/Sign are a separate measurement (scripts/ts-bench.ts, TypeScript via
+	// @mysten/sui / @noble/post-quantum — the libraries a Sui wallet would use) —
+	// joined onto the Rust-measured rows by scheme name.
+	const tsByScheme = new Map(tsBench.map((r) => [r.scheme, r]));
+
+	// A scheme renders as long as EITHER source has it — Verify/pk+sig/vs Ed25519
+	// degrade to "—" if missing from mac-m2-max.csv, Keygen/Sign degrade to "—" if
+	// missing from ts-bench.csv, symmetrically. Only a scheme absent from both
+	// (impossible today, but not enforced by types) drops out entirely.
+	interface LensRow {
+		scheme: string;
+		mysten?: MystenSchemeAgg;
+		ts?: (typeof tsBench)[number];
 	}
-
-	// The Mac run pins the measured row set; the toggle only swaps which host's run
-	// feeds the verify/ratio columns. With server.csv still a placeholder those cells
-	// render as "pending" while sizes (host-independent) stay visible.
-	const measuredRows = lensRows(mystenBench['mac-m2-max']);
-
-	const hostRows = $derived(lensRows(mystenBench[host]));
-	const hostPending = $derived(hostRows.length === 0);
-	const hostByScheme = $derived(new Map(hostRows.map((r) => [r.scheme, r])));
-	const hostMeta = $derived(MYSTEN_HOSTS.find((h) => h.id === host)!);
+	const measuredRows: LensRow[] = DISPLAY_SCHEMES.map((scheme) => ({
+		scheme,
+		mysten: mystenByScheme.get(scheme),
+		ts: tsByScheme.get(scheme),
+	})).filter((r) => r.mysten != null || r.ts != null);
 
 	const { schemes } = processYamlSchemes(allSchemeData, 'round-3', { useLatestVersion: true });
 
@@ -124,36 +129,16 @@
 {/snippet}
 
 <section class="rounded border border-pqs-apricot/60 bg-white p-4 shadow-sm dark:border-pqs-apricot/40 dark:bg-pqs-midnight-mid">
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<div>
-			<h2 class="font-heading text-xl font-bold text-pqs-midnight dark:text-white">
-				Sui on-chain lens
-			</h2>
-			<p class="mt-1 text-xs text-pqs-steel dark:text-pqs-bluegray">
-				The FIPS-track signature candidates, measured through fastcrypto — the stack a Sui validator would run.
-			</p>
-		</div>
-
-		<!-- Host toggle: swaps which run feeds the verify + vs-Ed25519 columns -->
-		<div class="flex rounded border border-pqs-ashgray dark:border-pqs-steel overflow-hidden shrink-0">
-			{#each MYSTEN_HOSTS as h}
-				<button
-					onclick={() => (host = h.id)}
-					class="px-3 py-1.5 text-xs font-heading transition-colors {host === h.id
-						? 'bg-pqs-apricot text-pqs-midnight font-semibold'
-						: 'bg-white text-pqs-bluegray hover:text-pqs-midnight dark:bg-pqs-midnight-mid dark:text-pqs-steel dark:hover:text-white'}"
-				>
-					{h.label}
-				</button>
-			{/each}
-		</div>
-	</div>
-
-	{#if hostPending}
-		<p class="mt-3 rounded border border-pqs-apricot/40 bg-pqs-apricot/10 px-3 py-2 text-xs text-pqs-midnight dark:bg-pqs-apricot/5 dark:text-pqs-smoke">
-			Server run not yet imported — see <code class="font-mono">npm run import-bench</code>.
+	<div>
+		<h2 class="font-heading text-xl font-bold text-pqs-midnight dark:text-white">
+			Sui on-chain lens
+		</h2>
+		<p class="mt-1 text-xs text-pqs-steel dark:text-pqs-bluegray">
+			The FIPS-track signature candidates, measured through fastcrypto — the stack a Sui validator
+			would run. Keygen and Sign are a separate measurement: TypeScript, via the libraries a Sui
+			wallet would actually use.
 		</p>
-	{/if}
+	</div>
 
 	<div class="mt-4 overflow-x-auto rounded border border-pqs-ashgray dark:border-pqs-steel">
 		<table class="min-w-full text-sm">
@@ -164,14 +149,17 @@
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">pk+sig (B)</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Verify</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">vs Ed25519</th>
+					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Keygen</th>
+					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Sign</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Assurance</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-pqs-ashgray bg-white dark:divide-pqs-steel dark:bg-pqs-midnight-mid">
 				{#each measuredRows as row (row.scheme)}
-					{@const hostRow = hostByScheme.get(row.scheme)}
 					{@const zooScheme = zooSchemeFor(row.scheme)}
-					{@const avgOver = hostRow != null ? hostRow.impls.length : 1}
+					{@const mysten = row.mysten}
+					{@const avgOver = mysten?.impls.length ?? 0}
+					{@const ts = row.ts}
 					<tr class="hover:bg-pqs-smoke dark:hover:bg-pqs-steel/30">
 						<!-- Scheme (the measured name is the parameter set) -->
 						<td class="whitespace-nowrap px-3 py-1.5" title={zooScheme?.assumption}>
@@ -197,26 +185,37 @@
 						<!-- Std -->
 						{@render stdCell(zooScheme)}
 						<!-- pk+sig -->
-						<td class="px-3 py-1.5 text-right tabular-nums {sizeCellClass(row.pkLen + row.sigLen)}">{fmt(row.pkLen + row.sigLen)}</td>
-						{#if hostPending}
-							<td class="px-3 py-1.5 text-right italic text-pqs-bluegray dark:text-pqs-steel">pending</td>
-							<td class="px-3 py-1.5 text-right italic text-pqs-bluegray dark:text-pqs-steel">pending</td>
-						{:else}
-							<!-- Verify (measured on the selected host; averaged over impls) -->
-							<td
-								class="px-3 py-1.5 text-right tabular-nums {verifyCellClass(hostRow?.verifyNs != null ? hostRow.verifyNs / 1000 : null)}"
-								title={hostRow && avgOver > 1 ? implSpread(hostRow) : undefined}
-							>
-								{hostRow?.verifyNs != null ? fmtTime(hostRow.verifyNs / 1000) : '—'}
-								{#if hostRow && avgOver > 1}
-									<span class="text-pqs-bluegray dark:text-pqs-steel">(avg {avgOver})</span>
-								{/if}
-							</td>
-							<!-- vs Ed25519 (harness-computed, intra-run) -->
-							<td class="px-3 py-1.5 text-right tabular-nums">
-								{hostRow?.vsEd25519 != null ? fmtRatio(hostRow.vsEd25519) : '—'}
-							</td>
-						{/if}
+						<td class="px-3 py-1.5 text-right tabular-nums {mysten ? sizeCellClass(mysten.pkLen + mysten.sigLen) : ''}">
+							{mysten ? fmt(mysten.pkLen + mysten.sigLen) : '—'}
+						</td>
+						<!-- Verify (averaged over impls when a scheme has more than one) -->
+						<td
+							class="px-3 py-1.5 text-right tabular-nums {verifyCellClass(mysten?.verifyNs != null ? mysten.verifyNs / 1000 : null)}"
+							title={mysten && avgOver > 1 ? implSpread(mysten) : undefined}
+						>
+							{mysten?.verifyNs != null ? fmtTime(mysten.verifyNs / 1000) : '—'}
+							{#if avgOver > 1}
+								<span class="text-pqs-bluegray dark:text-pqs-steel">(avg {avgOver})</span>
+							{/if}
+						</td>
+						<!-- vs Ed25519 (harness-computed, intra-run) -->
+						<td class="px-3 py-1.5 text-right tabular-nums">
+							{mysten?.vsEd25519 != null ? fmtRatio(mysten.vsEd25519) : '—'}
+						</td>
+						<!-- Keygen (TypeScript: @mysten/sui / @noble/post-quantum) -->
+						<td
+							class="px-3 py-1.5 text-right tabular-nums {signCellClass(ts?.keygenNs != null ? ts.keygenNs / 1000 : null)}"
+							title={ts ? `${ts.lib}, median of ${ts.keygenIters} iterations` : undefined}
+						>
+							{ts?.keygenNs != null ? fmtTime(ts.keygenNs / 1000) : '—'}
+						</td>
+						<!-- Sign (TypeScript) -->
+						<td
+							class="px-3 py-1.5 text-right tabular-nums {signCellClass(ts?.signNs != null ? ts.signNs / 1000 : null)}"
+							title={ts ? `${ts.lib}, median of ${ts.signIters} iterations` : undefined}
+						>
+							{ts?.signNs != null ? fmtTime(ts.signNs / 1000) : '—'}
+						</td>
 						{@render assuranceCell(row.scheme)}
 					</tr>
 				{/each}
@@ -227,7 +226,16 @@
 	<p class="mt-2 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 		Measured: <a href="https://github.com/mahdi-mysten/pq-sig-bench" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">pq-sig-bench</a>
 		through fastcrypto (<a href="https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">mahdi/fn-dsa-512</a> branch, pre-merge)
-		— the stack a Sui validator would run — median of 1000 verify iterations, {hostMeta.machine}.
+		— the stack a Sui validator would run — median of 1000 verify iterations, {BENCH_MACHINE}.
+	</p>
+	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
+		Keygen/Sign: <a href="https://github.com/mahdi-mysten/nist-sigs-zoo/blob/mysten-zoo/scripts/ts-bench.ts" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">scripts/ts-bench.ts</a>,
+		measured in TypeScript through <a href="https://www.npmjs.com/package/@mysten/sui" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@mysten/sui</a>
+		(Ed25519) and <a href="https://github.com/paulmillr/noble-post-quantum" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@noble/post-quantum</a>
+		(the PQ schemes) — the libraries a browser or mobile wallet would actually run, a different
+		stack from the Rust verify numbers above. Median of 1000 iterations, except SLH-DSA-SHAKE-128s
+		(30) and every other slow scheme (100) — hover a cell for the exact count; each iteration signs
+		a fresh random message under one key, matching the Rust harness's own methodology.
 	</p>
 	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 		Sui validators batch-verify Ed25519, roughly halving its amortized per-signature cost; no PQ

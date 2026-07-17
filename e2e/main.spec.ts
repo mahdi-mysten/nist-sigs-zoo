@@ -71,11 +71,12 @@ test.describe('Main page', () => {
 });
 
 test.describe('Sui on-chain lens', () => {
-	test('lens section renders with host toggle', async ({ page }) => {
+	test('lens section renders', async ({ page }) => {
 		await page.goto('/');
 		await expect(page.locator('h2', { hasText: 'Sui on-chain lens' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Mac M2 Max' })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Sui-validator server' })).toBeVisible();
+		// No host toggle — numbers are Mac M2 Max only, no unpopulated "server" placeholder
+		await expect(page.getByRole('button', { name: 'Mac M2 Max' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Sui-validator server' })).toHaveCount(0);
 	});
 
 	test('shows the measured FIPS-track rows, no on-ramp schemes', async ({ page }) => {
@@ -93,8 +94,33 @@ test.describe('Sui on-chain lens', () => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.locator('table thead th')).toHaveText([
-			'Scheme', 'Std', 'pk+sig (B)', 'Verify', 'vs Ed25519', 'Assurance',
+			'Scheme', 'Std', 'pk+sig (B)', 'Verify', 'vs Ed25519', 'Keygen', 'Sign', 'Assurance',
 		]);
+	});
+
+	test('Keygen/Sign columns render TypeScript-measured times for every row', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		// 8 measured rows; no row should be left showing the "no data" dash
+		await expect(lens.locator('table tbody tr')).toHaveCount(8);
+		const keygenCells = lens.locator('table tbody tr td:nth-child(6)');
+		const signCells = lens.locator('table tbody tr td:nth-child(7)');
+		await expect(keygenCells).toHaveCount(8);
+		await expect(signCells).toHaveCount(8);
+		for (let i = 0; i < 8; i++) {
+			await expect(keygenCells.nth(i)).not.toHaveText('—');
+			await expect(signCells.nth(i)).not.toHaveText('—');
+		}
+		// Hovering a cell reveals the library and the exact iteration count used
+		await expect(lens.locator('[title*="@noble/post-quantum, median of"]').first()).toHaveCount(1);
+		await expect(lens.locator('[title*="@mysten/sui, median of"]')).toHaveCount(2);
+	});
+
+	test('SLH-DSA-SHAKE-128s keygen/sign use a reduced iteration count', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		const row = lens.locator('tr', { hasText: 'SLH-DSA-SHAKE-128s' });
+		await expect(row.locator('[title*="median of 30 iterations"]')).toHaveCount(2);
 	});
 
 	test('ML-DSA is shown at all three benched security levels', async ({ page }) => {
@@ -154,15 +180,10 @@ test.describe('Sui on-chain lens', () => {
 		await expect(lens.getByText('FIPS 206 pending', { exact: true }).first()).toBeVisible();
 	});
 
-	test('server toggle shows pending state until a server run is imported', async ({ page }) => {
+	test('no pending/placeholder state — every measured row has a real verify value', async ({ page }) => {
 		await page.goto('/');
-		// Hydration first, so the toggle click hits the Svelte handler
-		await page.waitForLoadState('networkidle');
-		await page.getByRole('button', { name: 'Sui-validator server' }).click();
-		await expect(page.getByText('Server run not yet imported')).toBeVisible();
-		await expect(page.getByText('pending').first()).toBeVisible();
-		// Toggling back restores the measured verify column
-		await page.getByRole('button', { name: 'Mac M2 Max' }).click();
-		await expect(page.getByText('Server run not yet imported')).toBeHidden();
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		await expect(lens.getByText('Server run not yet imported')).toHaveCount(0);
+		await expect(lens.getByText('pending', { exact: true })).toHaveCount(0);
 	});
 });
