@@ -293,11 +293,13 @@ wallet-side (TypeScript, browser/mobile — see the `ts-bench.csv` section above
 Verify is validator-side (Rust, the server). These are two independent
 measurements joined by scheme name; each degrades to `—` on its own if that
 scheme is missing from its respective CSV. There is no standalone "vs Ed25519"
-column — each of Keygen/Sign/Verify shows its own ratio inline as a muted
-`(X.X×)` suffix right after its time value (`ratioSuffix` snippet), sourced
-from that column's own CSV (Keygen/Sign from `ts-bench.csv`'s
+column — each of pk+sig/Keygen/Sign/Verify shows its own ratio inline as a
+`(X.X×)` suffix right after its value (`ratioSuffix` snippet), sourced from
+that column's own CSV (Keygen/Sign from `ts-bench.csv`'s
 `keygen_vs_ed25519`/`sign_vs_ed25519`, Verify from `mac-m2-max.csv`'s
-`vs_ed25519`) — the two Ed25519 baselines are never mixed.
+`vs_ed25519`) — the two Ed25519 baselines are never mixed. pk+sig's ratio is
+the only one computed client-side rather than by a harness: byte lengths are
+static, not a noisy measurement, so there's nothing for a harness to own.
 - Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, FN-DSA-1024,
   ML-DSA-44, ML-DSA-65, ML-DSA-87, SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The
   CSV still carries the SLH-DSA SHA2 variants; they're just not in this view.

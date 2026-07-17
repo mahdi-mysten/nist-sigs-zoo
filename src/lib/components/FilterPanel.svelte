@@ -74,6 +74,49 @@
 <aside class="rounded border border-pqs-ashgray bg-white p-4 text-sm shadow-sm dark:border-pqs-steel dark:bg-pqs-midnight-mid">
 	<h2 class="mb-4 font-heading text-base font-bold text-pqs-midnight dark:text-white">Filters</h2>
 
+	<!-- Scheme picker: name-based, shown first as the most direct way to narrow
+	     the table before the column-value filters below. -->
+	<section class="mb-5">
+		<div class="mb-2 flex items-center justify-between">
+			<h3 class="font-heading text-xs font-semibold uppercase tracking-wider text-pqs-steel dark:text-pqs-apricot">
+				Schemes
+			</h3>
+			<span class="space-x-2 font-heading text-xs">
+				<button onclick={selectAll} class="text-pqs-apricot underline hover:no-underline">All</button>
+				<button onclick={selectNone} class="text-pqs-apricot underline hover:no-underline">None</button>
+			</span>
+		</div>
+		{#each categories as cat}
+			<details class="mb-1" open>
+				<summary class="flex cursor-pointer list-none items-center gap-1.5 py-0.5">
+					<input
+						type="checkbox"
+						checked={categoryState(cat) !== 'none'}
+						use:indeterminate={categoryState(cat) === 'some'}
+						onchange={() => toggleCategory(cat)}
+						class="shrink-0 accent-pqs-apricot"
+					/>
+					<span class="font-heading font-semibold text-pqs-midnight dark:text-pqs-smoke">{cat}</span>
+				</summary>
+				<div class="ml-5 mt-0.5 space-y-0.5">
+					{#each schemesByCategory[cat] as scheme}
+						<label class="flex cursor-pointer items-center gap-1.5">
+							<input
+								type="checkbox"
+								checked={$store.schemes.has(scheme.scheme)}
+								onchange={() => toggleScheme(scheme.scheme)}
+								class="shrink-0 accent-pqs-apricot"
+							/>
+							<span class="text-pqs-steel dark:text-pqs-bluegray">{scheme.scheme}</span>
+						</label>
+					{/each}
+				</div>
+			</details>
+		{/each}
+	</section>
+
+	<hr class="mb-4 border-pqs-ashgray dark:border-pqs-steel" />
+
 	<!-- Size filters -->
 	<section class="mb-5">
 		<h3 class="mb-1 font-heading text-xs font-semibold uppercase tracking-wider text-pqs-steel dark:text-pqs-apricot">
@@ -160,46 +203,4 @@
 			</div>
 		</section>
 	{/if}
-
-	<hr class="mb-4 border-pqs-ashgray dark:border-pqs-steel" />
-
-	<!-- Scheme picker: name-based, so it sits after the column-value filters above -->
-	<section>
-		<div class="mb-2 flex items-center justify-between">
-			<h3 class="font-heading text-xs font-semibold uppercase tracking-wider text-pqs-steel dark:text-pqs-apricot">
-				Schemes
-			</h3>
-			<span class="space-x-2 font-heading text-xs">
-				<button onclick={selectAll} class="text-pqs-apricot underline hover:no-underline">All</button>
-				<button onclick={selectNone} class="text-pqs-apricot underline hover:no-underline">None</button>
-			</span>
-		</div>
-		{#each categories as cat}
-			<details class="mb-1" open>
-				<summary class="flex cursor-pointer list-none items-center gap-1.5 py-0.5">
-					<input
-						type="checkbox"
-						checked={categoryState(cat) !== 'none'}
-						use:indeterminate={categoryState(cat) === 'some'}
-						onchange={() => toggleCategory(cat)}
-						class="shrink-0 accent-pqs-apricot"
-					/>
-					<span class="font-heading font-semibold text-pqs-midnight dark:text-pqs-smoke">{cat}</span>
-				</summary>
-				<div class="ml-5 mt-0.5 space-y-0.5">
-					{#each schemesByCategory[cat] as scheme}
-						<label class="flex cursor-pointer items-center gap-1.5">
-							<input
-								type="checkbox"
-								checked={$store.schemes.has(scheme.scheme)}
-								onchange={() => toggleScheme(scheme.scheme)}
-								class="shrink-0 accent-pqs-apricot"
-							/>
-							<span class="text-pqs-steel dark:text-pqs-bluegray">{scheme.scheme}</span>
-						</label>
-					{/each}
-				</div>
-			</details>
-		{/each}
-	</section>
 </aside>

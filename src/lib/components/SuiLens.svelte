@@ -31,6 +31,15 @@
 	const aggs = aggregateByScheme(mystenBench);
 	const mystenByScheme = new Map(aggs.map((a) => [a.scheme, a]));
 
+	// pk+sig ratio baseline — same Ed25519-row-of-this-CSV rule as the timing
+	// ratios, just computed here since mac-m2-max.csv has no vs_ed25519 column
+	// for sizes (they're static byte lengths, not a noisy measurement, so
+	// there's nothing for the harness itself to compute and own).
+	const ed25519PkPlusSig = (() => {
+		const ed = mystenByScheme.get('Ed25519');
+		return ed ? ed.pkLen + ed.sigLen : null;
+	})();
+
 	// Keygen/Sign are a separate measurement (scripts/ts-bench.ts, TypeScript via
 	// @mysten/sui / @noble/post-quantum — the libraries a Sui wallet would use) —
 	// joined onto the Rust-measured rows by scheme name.
@@ -108,12 +117,15 @@
 	</td>
 {/snippet}
 
-<!-- Muted "(X.X×)" suffix vs the Ed25519 baseline, shared by Keygen/Sign/Verify —
+<!-- "(X.X×)" suffix vs the Ed25519 baseline, shared by pk+sig/Keygen/Sign/Verify —
      each column's ratio is intra-run against its own CSV's own Ed25519 row
-     (ts-bench.csv for Keygen/Sign, mac-m2-max.csv for Verify), never cross-CSV. -->
+     (ts-bench.csv for Keygen/Sign, mac-m2-max.csv for pk+sig/Verify), never
+     cross-CSV. text-pqs-steel/dark:text-pqs-bluegray (not the reverse — that
+     pairing is unreadably low-contrast in both themes) plus font-medium keeps
+     it legible as real data, not a faint aside. -->
 {#snippet ratioSuffix(r: number | null | undefined)}
 	{#if r != null}
-		<span class="ml-1 text-pqs-bluegray dark:text-pqs-steel">({fmtRatio(r)})</span>
+		<span class="ml-1 font-medium text-pqs-steel dark:text-pqs-bluegray">({fmtRatio(r)})</span>
 	{/if}
 {/snippet}
 
@@ -129,7 +141,7 @@
 				title={a.tip}
 			>{a.badge}{#if a.impl}&nbsp;({a.impl}){/if}</span>
 			{#if a.unaudited}
-				<span class="ml-1 text-xs text-pqs-bluegray dark:text-pqs-steel">unaudited</span>
+				<span class="ml-1 text-xs text-pqs-steel dark:text-pqs-bluegray">unaudited</span>
 			{/if}
 		{:else}
 			<span class="text-pqs-bluegray">—</span>
@@ -169,6 +181,7 @@
 					{@const mysten = row.mysten}
 					{@const avgOver = mysten?.impls.length ?? 0}
 					{@const ts = row.ts}
+					{@const pkSigRatio = mysten && ed25519PkPlusSig ? (mysten.pkLen + mysten.sigLen) / ed25519PkPlusSig : null}
 					<tr class="hover:bg-pqs-smoke dark:hover:bg-pqs-steel/30">
 						<!-- Scheme (the measured name is the parameter set) -->
 						<td class="whitespace-nowrap px-3 py-1.5" title={zooScheme?.assumption}>
@@ -195,7 +208,7 @@
 						{@render stdCell(zooScheme)}
 						<!-- pk+sig -->
 						<td class="px-3 py-1.5 text-right tabular-nums {mysten ? sizeCellClass(mysten.pkLen + mysten.sigLen) : ''}">
-							{mysten ? fmt(mysten.pkLen + mysten.sigLen) : '—'}
+							{mysten ? fmt(mysten.pkLen + mysten.sigLen) : '—'}{@render ratioSuffix(pkSigRatio)}
 						</td>
 						<!-- Keygen (browser: TypeScript via @mysten/sui / @noble/post-quantum) -->
 						<td
@@ -218,7 +231,7 @@
 						>
 							{mysten?.verifyNs != null ? fmtTime(mysten.verifyNs / 1000) : '—'}{@render ratioSuffix(mysten?.vsEd25519)}
 							{#if avgOver > 1}
-								<span class="ml-1 text-pqs-bluegray dark:text-pqs-steel">(avg {avgOver})</span>
+								<span class="ml-1 text-pqs-steel dark:text-pqs-bluegray">(avg {avgOver})</span>
 							{/if}
 						</td>
 						{@render assuranceCell(row.scheme)}
