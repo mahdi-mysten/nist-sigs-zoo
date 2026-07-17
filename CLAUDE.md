@@ -181,7 +181,17 @@ Before timing anything, each scheme's pk/sig byte lengths are checked against
 the values already established in `mac-m2-max.csv` (`EXPECTED_SIZES` in the
 script) — this is what catches a wrong parameter set or wire variant (e.g.
 non-padded Falcon) before its timing gets trusted, mirroring pq-sig-bench's own
-self-check-before-timing gate.
+self-check-before-timing gate. `checkSizes()` throws its own descriptive error
+if a scheme has no `EXPECTED_SIZES` entry at all (rather than a bare
+`TypeError`) — a guard for whoever adds a 9th scheme later.
+
+The script also computes `keygen_vs_ed25519`/`sign_vs_ed25519` itself — each
+scheme's keygen/sign time divided by this same run's own Ed25519 row — exactly
+the same "harness computes its own ratio, UI never recomputes it" rule
+`vs_ed25519` already follows in `mac-m2-max.csv`. The two Ed25519 baselines
+(this file's vs. `mac-m2-max.csv`'s) are never compared against each other:
+Keygen/Sign ratios are intra-`ts-bench.csv`, Verify's ratio is
+intra-`mac-m2-max.csv`.
 
 Requires Node ≥22.6 (runs the `.ts` file directly via native TypeScript
 support — no build step, no `tsx`/`ts-node`). Re-run: `node scripts/ts-bench.ts`
@@ -235,7 +245,7 @@ src/
 │       ├── RangeField.svelte     # reusable number input
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
-│       └── SuiLens.svelte        # Sui on-chain lens: 8-column measured table (Scheme·Std·pk+sig·Verify·vs Ed25519·Keygen·Sign·Assurance)
+│       └── SuiLens.svelte        # Sui on-chain lens: 7-column measured table (Scheme·Std·pk+sig·Keygen·Sign·Verify·Assurance)
 └── routes/
     ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
     ├── +page.ts          # load: processYamlSchemes('round-3', {useLatestVersion:true}), createFilterStore
@@ -273,14 +283,21 @@ tests/
 
 ### Sui On-Chain Lens
 
-`SuiLens.svelte` on the main page — a deliberately minimal decision table, eight
-columns: **Scheme · Std · pk+sig (B) · Verify · vs Ed25519 · Keygen · Sign ·
-Assurance**. It shows only the FIPS-track schemes we have measured through
-fastcrypto; the on-ramp candidates live in the full zoo table below, not here.
-Verify/vs-Ed25519 (validator-side, Rust) and Keygen/Sign (wallet-side,
-TypeScript — see the `ts-bench.csv` section above) are two independent
+`SuiLens.svelte` on the main page — a deliberately minimal decision table, seven
+columns: **Scheme · Std · pk+sig (B) · Keygen (browser) · Sign (browser) ·
+Verify (server) · Assurance**. It shows only the FIPS-track schemes we have
+measured through fastcrypto; the on-ramp candidates live in the full zoo table
+below, not here. Column order follows the signature lifecycle (keygen → sign →
+verify), and the header labels say plainly where each op runs: Keygen/Sign are
+wallet-side (TypeScript, browser/mobile — see the `ts-bench.csv` section above),
+Verify is validator-side (Rust, the server). These are two independent
 measurements joined by scheme name; each degrades to `—` on its own if that
-scheme is missing from its respective CSV.
+scheme is missing from its respective CSV. There is no standalone "vs Ed25519"
+column — each of Keygen/Sign/Verify shows its own ratio inline as a muted
+`(X.X×)` suffix right after its time value (`ratioSuffix` snippet), sourced
+from that column's own CSV (Keygen/Sign from `ts-bench.csv`'s
+`keygen_vs_ed25519`/`sign_vs_ed25519`, Verify from `mac-m2-max.csv`'s
+`vs_ed25519`) — the two Ed25519 baselines are never mixed.
 - Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, FN-DSA-1024,
   ML-DSA-44, ML-DSA-65, ML-DSA-87, SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The
   CSV still carries the SLH-DSA SHA2 variants; they're just not in this view.
@@ -292,9 +309,10 @@ scheme is missing from its respective CSV.
   FN-DSA-1024 has no fastcrypto implementation yet, so it measures PQClean's
   reference C directly — a different codebase than Sui would ship, flagged as
   such in its Assurance pill.
-- vs-Ed25519 ratios are the harness's own intra-run `vs_ed25519` column — never
-  recomputed. A footnote states the Ed25519 batching caveat (validators batch-verify
-  Ed25519, ~2× amortized; no PQ scheme batches).
+- Every ratio is harness-computed and intra-run — never recomputed by the UI. A
+  footnote states the Ed25519 batching caveat (validators batch-verify Ed25519,
+  ~2× amortized; no PQ scheme batches — the practical on-chain gap is about 2×
+  the Verify column's ratio).
 - Std chips name the concrete standard: "FIPS 204"/"FIPS 205" from the picked
   version's label (`fipsChipLabel` in `$lib/format`), and "FIPS 206 pending" for
   Falcon via `PENDING_FIPS` in `$lib/constants` (same in `SchemeTable`).

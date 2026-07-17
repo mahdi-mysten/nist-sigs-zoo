@@ -36,10 +36,10 @@
 	// joined onto the Rust-measured rows by scheme name.
 	const tsByScheme = new Map(tsBench.map((r) => [r.scheme, r]));
 
-	// A scheme renders as long as EITHER source has it — Verify/pk+sig/vs Ed25519
-	// degrade to "—" if missing from mac-m2-max.csv, Keygen/Sign degrade to "—" if
-	// missing from ts-bench.csv, symmetrically. Only a scheme absent from both
-	// (impossible today, but not enforced by types) drops out entirely.
+	// A scheme renders as long as EITHER source has it — Verify degrades to "—" if
+	// missing from mac-m2-max.csv, Keygen/Sign degrade to "—" if missing from
+	// ts-bench.csv, symmetrically. Only a scheme absent from both (impossible
+	// today, but not enforced by types) drops out entirely.
 	interface LensRow {
 		scheme: string;
 		mysten?: MystenSchemeAgg;
@@ -108,6 +108,15 @@
 	</td>
 {/snippet}
 
+<!-- Muted "(X.X×)" suffix vs the Ed25519 baseline, shared by Keygen/Sign/Verify —
+     each column's ratio is intra-run against its own CSV's own Ed25519 row
+     (ts-bench.csv for Keygen/Sign, mac-m2-max.csv for Verify), never cross-CSV. -->
+{#snippet ratioSuffix(r: number | null | undefined)}
+	{#if r != null}
+		<span class="ml-1 text-pqs-bluegray dark:text-pqs-steel">({fmtRatio(r)})</span>
+	{/if}
+{/snippet}
+
 <!-- Assurance cell: the practical "can we trust the code" axis. One colored pill
      (green = audited/proven, amber = correctness-gated) with the term explained on
      hover, plus a muted "unaudited" where no independent audit exists yet. -->
@@ -134,9 +143,10 @@
 			Sui on-chain lens
 		</h2>
 		<p class="mt-1 text-xs text-pqs-steel dark:text-pqs-bluegray">
-			The FIPS-track signature candidates, measured through fastcrypto — the stack a Sui validator
-			would run. Keygen and Sign are a separate measurement: TypeScript, via the libraries a Sui
-			wallet would actually use.
+			The FIPS-track signature candidates. Keygen and Sign run in the browser — a wallet operation,
+			measured in TypeScript through the libraries a Sui wallet would actually use. Verify runs on
+			the validator server — measured through fastcrypto, the stack a Sui validator would run. Each
+			cell also shows its cost as a ratio against Ed25519.
 		</p>
 	</div>
 
@@ -147,10 +157,9 @@
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Scheme</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Std</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">pk+sig (B)</th>
-					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Verify</th>
-					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">vs Ed25519</th>
-					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Keygen</th>
-					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Sign</th>
+					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold" title="Wallet-side: measured in TypeScript, browser/mobile runtime">Keygen (browser)</th>
+					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold" title="Wallet-side: measured in TypeScript, browser/mobile runtime">Sign (browser)</th>
+					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold" title="Validator-side: measured in Rust, the fastcrypto stack a validator runs">Verify (server)</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Assurance</th>
 				</tr>
 			</thead>
@@ -188,33 +197,29 @@
 						<td class="px-3 py-1.5 text-right tabular-nums {mysten ? sizeCellClass(mysten.pkLen + mysten.sigLen) : ''}">
 							{mysten ? fmt(mysten.pkLen + mysten.sigLen) : '—'}
 						</td>
-						<!-- Verify (averaged over impls when a scheme has more than one) -->
-						<td
-							class="px-3 py-1.5 text-right tabular-nums {verifyCellClass(mysten?.verifyNs != null ? mysten.verifyNs / 1000 : null)}"
-							title={mysten && avgOver > 1 ? implSpread(mysten) : undefined}
-						>
-							{mysten?.verifyNs != null ? fmtTime(mysten.verifyNs / 1000) : '—'}
-							{#if avgOver > 1}
-								<span class="text-pqs-bluegray dark:text-pqs-steel">(avg {avgOver})</span>
-							{/if}
-						</td>
-						<!-- vs Ed25519 (harness-computed, intra-run) -->
-						<td class="px-3 py-1.5 text-right tabular-nums">
-							{mysten?.vsEd25519 != null ? fmtRatio(mysten.vsEd25519) : '—'}
-						</td>
-						<!-- Keygen (TypeScript: @mysten/sui / @noble/post-quantum) -->
+						<!-- Keygen (browser: TypeScript via @mysten/sui / @noble/post-quantum) -->
 						<td
 							class="px-3 py-1.5 text-right tabular-nums {signCellClass(ts?.keygenNs != null ? ts.keygenNs / 1000 : null)}"
 							title={ts ? `${ts.lib}, median of ${ts.keygenIters} iterations` : undefined}
 						>
-							{ts?.keygenNs != null ? fmtTime(ts.keygenNs / 1000) : '—'}
+							{ts?.keygenNs != null ? fmtTime(ts.keygenNs / 1000) : '—'}{@render ratioSuffix(ts?.keygenVsEd25519)}
 						</td>
-						<!-- Sign (TypeScript) -->
+						<!-- Sign (browser) -->
 						<td
 							class="px-3 py-1.5 text-right tabular-nums {signCellClass(ts?.signNs != null ? ts.signNs / 1000 : null)}"
 							title={ts ? `${ts.lib}, median of ${ts.signIters} iterations` : undefined}
 						>
-							{ts?.signNs != null ? fmtTime(ts.signNs / 1000) : '—'}
+							{ts?.signNs != null ? fmtTime(ts.signNs / 1000) : '—'}{@render ratioSuffix(ts?.signVsEd25519)}
+						</td>
+						<!-- Verify (server: Rust via fastcrypto; averaged over impls when a scheme has more than one) -->
+						<td
+							class="px-3 py-1.5 text-right tabular-nums {verifyCellClass(mysten?.verifyNs != null ? mysten.verifyNs / 1000 : null)}"
+							title={mysten && avgOver > 1 ? implSpread(mysten) : undefined}
+						>
+							{mysten?.verifyNs != null ? fmtTime(mysten.verifyNs / 1000) : '—'}{@render ratioSuffix(mysten?.vsEd25519)}
+							{#if avgOver > 1}
+								<span class="ml-1 text-pqs-bluegray dark:text-pqs-steel">(avg {avgOver})</span>
+							{/if}
 						</td>
 						{@render assuranceCell(row.scheme)}
 					</tr>
@@ -224,22 +229,23 @@
 	</div>
 
 	<p class="mt-2 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
-		Measured: <a href="https://github.com/mahdi-mysten/pq-sig-bench" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">pq-sig-bench</a>
+		Verify (server): <a href="https://github.com/mahdi-mysten/pq-sig-bench" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">pq-sig-bench</a>
 		through fastcrypto (<a href="https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">mahdi/fn-dsa-512</a> branch, pre-merge)
-		— the stack a Sui validator would run — median of 1000 verify iterations, {BENCH_MACHINE}.
+		— the stack a Sui validator would run — median of 1000 verify iterations, {BENCH_MACHINE}. Its ratio
+		is the harness's own intra-run number against this same run's Ed25519 row, never recomputed.
 	</p>
 	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
-		Keygen/Sign: <a href="https://github.com/mahdi-mysten/nist-sigs-zoo/blob/mysten-zoo/scripts/ts-bench.ts" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">scripts/ts-bench.ts</a>,
+		Keygen/Sign (browser): <a href="https://github.com/mahdi-mysten/nist-sigs-zoo/blob/mysten-zoo/scripts/ts-bench.ts" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">scripts/ts-bench.ts</a>,
 		measured in TypeScript through <a href="https://www.npmjs.com/package/@mysten/sui" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@mysten/sui</a>
 		(Ed25519) and <a href="https://github.com/paulmillr/noble-post-quantum" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@noble/post-quantum</a>
-		(the PQ schemes) — the libraries a browser or mobile wallet would actually run, a different
-		stack from the Rust verify numbers above. Median of 1000 iterations, except SLH-DSA-SHAKE-128s
-		(30) and every other slow scheme (100) — hover a cell for the exact count; each iteration signs
-		a fresh random message under one key, matching the Rust harness's own methodology.
+		(the PQ schemes) — the libraries a browser or mobile wallet would actually run, a different stack
+		and a different Ed25519 baseline from Verify's. Median of 1000 iterations, except SLH-DSA-SHAKE-128s
+		(30) and every other slow scheme (100) — hover a cell for the exact count; each iteration signs a
+		fresh random message under one key, matching the Rust harness's own methodology.
 	</p>
 	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 		Sui validators batch-verify Ed25519, roughly halving its amortized per-signature cost; no PQ
-		candidate batches, so the practical on-chain gap is about 2× the vs-Ed25519 column. Each row
+		candidate batches, so the practical on-chain gap is about 2× the Verify column's ratio. Each row
 		measures one implementation — the one Sui would actually run — except FN-DSA-1024, which has no
 		fastcrypto implementation yet and is shown via PQClean's portable reference C for scale. Assurance
 		names the implementation behind each row and whether it has an independent audit — hover a pill

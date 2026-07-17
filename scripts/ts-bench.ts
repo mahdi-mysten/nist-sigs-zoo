@@ -180,8 +180,19 @@ for (const [scheme, lib] of [
 	rows.push(benchPqScheme(scheme, lib, slowIters(scheme)));
 }
 
+// --- Ratios vs Ed25519 — computed here, intra-run, exactly like mac-m2-max.csv's
+// own vs_ed25519 column (pq-sig-bench computes that one itself; the lens never
+// recomputes it). Same rule applied here so both CSVs are "harness owns its
+// ratios, UI just displays them." ---
+const ed25519 = rows.find((r) => r.scheme === 'Ed25519');
+if (ed25519 == null) throw new Error('Ed25519 row missing — cannot compute vs-Ed25519 ratios');
+function ratio(ns: number, baseline: number): string {
+	return (ns / baseline).toFixed(2);
+}
+
 // --- Write CSV ---
-const HEADER = 'scheme,lib,keygen_ns,sign_ns,keygen_iters,sign_iters';
+const HEADER =
+	'scheme,lib,keygen_ns,sign_ns,keygen_iters,sign_iters,keygen_vs_ed25519,sign_vs_ed25519';
 const lines = [
 	'# TypeScript keygen/sign benchmarks (scripts/ts-bench.ts) — wallet-side cost,',
 	'# measured through the libraries a Sui wallet would actually use: @mysten/sui',
@@ -189,12 +200,15 @@ const lines = [
 	'# the Rust/fastcrypto verify numbers in mac-m2-max.csv (validators run Rust;',
 	'# wallets typically run JS/TS). Median of N iterations (keygen_iters/',
 	'# sign_iters — 1000 where cheap, 100 where not), warmup 2, fresh random',
-	'# key/message every iteration. Re-run: node scripts/ts-bench.ts',
+	'# key/message every iteration. *_vs_ed25519 are intra-run ratios against this',
+	"# same file's own Ed25519 row — never recompute them against mac-m2-max.csv's.",
+	'# Re-run: node scripts/ts-bench.ts',
 	`# Apple M2 Max (macOS, arm64), ${process.version}.`,
 	HEADER,
 	...rows.map(
 		(r) =>
-			`${r.scheme},${r.lib},${r.keygen.nsMedian},${r.sign.nsMedian},${r.keygen.iters},${r.sign.iters}`
+			`${r.scheme},${r.lib},${r.keygen.nsMedian},${r.sign.nsMedian},${r.keygen.iters},${r.sign.iters},` +
+			`${ratio(r.keygen.nsMedian, ed25519.keygen.nsMedian)},${ratio(r.sign.nsMedian, ed25519.sign.nsMedian)}`
 	),
 ];
 

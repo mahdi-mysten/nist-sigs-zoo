@@ -5,7 +5,8 @@
 // numbers: validators run Rust, wallets typically run JS/TS. One row per
 // scheme (no impl column — unlike mystenBench.ts, there's exactly one library
 // per scheme here, so no averaging concept applies).
-export const TS_BENCH_HEADER = 'scheme,lib,keygen_ns,sign_ns,keygen_iters,sign_iters';
+export const TS_BENCH_HEADER =
+	'scheme,lib,keygen_ns,sign_ns,keygen_iters,sign_iters,keygen_vs_ed25519,sign_vs_ed25519';
 
 export interface TsBenchRow {
 	scheme: string;
@@ -14,6 +15,11 @@ export interface TsBenchRow {
 	signNs: number | null;
 	keygenIters: number | null;
 	signIters: number | null;
+	// Intra-run ratios against this same file's own Ed25519 row — computed by
+	// scripts/ts-bench.ts itself, never recomputed here (same rule as
+	// mystenBench.ts's vs_ed25519, just for a different measurement).
+	keygenVsEd25519: number | null;
+	signVsEd25519: number | null;
 }
 
 function num(s: string | undefined): number | null {
@@ -44,6 +50,8 @@ export function parseTsBenchCsv(text: string): TsBenchRow[] {
 			signNs: num(f[3]),
 			keygenIters: num(f[4]),
 			signIters: num(f[5]),
+			keygenVsEd25519: num(f[6]),
+			signVsEd25519: num(f[7]),
 		};
 	});
 }

@@ -90,11 +90,11 @@ test.describe('Sui on-chain lens', () => {
 		await expect(lens.getByText('SQIsign', { exact: true })).toHaveCount(0);
 	});
 
-	test('lens table has the lean column set ending with Assurance', async ({ page }) => {
+	test('lens table is sorted Keygen, Sign, Verify — no standalone vs-Ed25519 column', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.locator('table thead th')).toHaveText([
-			'Scheme', 'Std', 'pk+sig (B)', 'Verify', 'vs Ed25519', 'Keygen', 'Sign', 'Assurance',
+			'Scheme', 'Std', 'pk+sig (B)', 'Keygen (browser)', 'Sign (browser)', 'Verify (server)', 'Assurance',
 		]);
 	});
 
@@ -103,8 +103,8 @@ test.describe('Sui on-chain lens', () => {
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		// 8 measured rows; no row should be left showing the "no data" dash
 		await expect(lens.locator('table tbody tr')).toHaveCount(8);
-		const keygenCells = lens.locator('table tbody tr td:nth-child(6)');
-		const signCells = lens.locator('table tbody tr td:nth-child(7)');
+		const keygenCells = lens.locator('table tbody tr td:nth-child(4)');
+		const signCells = lens.locator('table tbody tr td:nth-child(5)');
 		await expect(keygenCells).toHaveCount(8);
 		await expect(signCells).toHaveCount(8);
 		for (let i = 0; i < 8; i++) {
@@ -114,6 +114,19 @@ test.describe('Sui on-chain lens', () => {
 		// Hovering a cell reveals the library and the exact iteration count used
 		await expect(lens.locator('[title*="@noble/post-quantum, median of"]').first()).toHaveCount(1);
 		await expect(lens.locator('[title*="@mysten/sui, median of"]')).toHaveCount(2);
+	});
+
+	test('every timing column shows its cost as a ratio against Ed25519', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		const edRow = lens.locator('tr', { hasText: 'Ed25519' });
+		// Ed25519 is its own baseline in all three columns: keygen, sign, verify
+		await expect(edRow.locator('td:nth-child(4)')).toContainText('(1.0×)');
+		await expect(edRow.locator('td:nth-child(5)')).toContainText('(1.0×)');
+		await expect(edRow.locator('td:nth-child(6)')).toContainText('(1.0×)');
+		// A slow PQ scheme shows a ratio far above 1×
+		const slhRow = lens.locator('tr', { hasText: 'SLH-DSA-SHAKE-128s' });
+		await expect(slhRow.locator('td:nth-child(5)')).not.toContainText('(1.0×)');
 	});
 
 	test('SLH-DSA-SHAKE-128s keygen/sign use a reduced iteration count', async ({ page }) => {

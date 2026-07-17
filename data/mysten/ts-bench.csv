@@ -4,14 +4,16 @@
 # the Rust/fastcrypto verify numbers in mac-m2-max.csv (validators run Rust;
 # wallets typically run JS/TS). Median of N iterations (keygen_iters/
 # sign_iters — 1000 where cheap, 100 where not), warmup 2, fresh random
-# key/message every iteration. Re-run: node scripts/ts-bench.ts
+# key/message every iteration. *_vs_ed25519 are intra-run ratios against this
+# same file's own Ed25519 row — never recompute them against mac-m2-max.csv's.
+# Re-run: node scripts/ts-bench.ts
 # Apple M2 Max (macOS, arm64), v26.4.0.
-scheme,lib,keygen_ns,sign_ns,keygen_iters,sign_iters
-Ed25519,@mysten/sui,131750,250250,1000,1000
-ML-DSA-44,@noble/post-quantum,1091750,5272667,1000,1000
-ML-DSA-65,@noble/post-quantum,1842042,8134083,1000,1000
-ML-DSA-87,@noble/post-quantum,2871041,10652334,1000,1000
-SLH-DSA-SHAKE-128s,@noble/post-quantum,1009194417,7804719917,30,30
-SLH-DSA-SHAKE-128f,@noble/post-quantum,15965542,374188250,100,100
-FN-DSA-512,@noble/post-quantum,90184708,2016458,100,100
-FN-DSA-1024,@noble/post-quantum,320366709,4245750,100,100
+scheme,lib,keygen_ns,sign_ns,keygen_iters,sign_iters,keygen_vs_ed25519,sign_vs_ed25519
+Ed25519,@mysten/sui,132583,249125,1000,1000,1.00,1.00
+ML-DSA-44,@noble/post-quantum,1121709,5508042,1000,1000,8.46,22.11
+ML-DSA-65,@noble/post-quantum,1883125,9430000,1000,1000,14.20,37.85
+ML-DSA-87,@noble/post-quantum,2935250,11166584,1000,1000,22.14,44.82
+SLH-DSA-SHAKE-128s,@noble/post-quantum,1027696167,7967308833,30,30,7751.34,31981.17
+SLH-DSA-SHAKE-128f,@noble/post-quantum,16471708,384462042,100,100,124.24,1543.25
+FN-DSA-512,@noble/post-quantum,90765208,2032750,100,100,684.59,8.16
+FN-DSA-1024,@noble/post-quantum,324340417,4236583,100,100,2446.32,17.01
