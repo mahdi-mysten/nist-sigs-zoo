@@ -4,15 +4,20 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Overview
 
-Static website comparing post-quantum signature schemes submitted to the NIST on-ramp.
+**Mysten PQ Signatures Zoo** — a Mysten Labs fork of the PQShield NIST Signatures Zoo,
+narrowed to the schemes relevant to Sui's PQ-authenticator decision. Signatures only
+(the upstream KEM comparison is removed), each scheme shown at its lowest NIST security
+level and only at levels 1–2, plus a "Sui on-chain lens" hero backed by our own
+measured benchmarks. The upstream round selector is removed; the dataset is pinned to
+the round-3 survivors at their latest specs.
 Built with SvelteKit (adapter-static) + Tailwind CSS v4 + TypeScript.
-Deploy: `npm run build` → `dist/`. GitHub Actions deploys to GitHub Pages.
+Deploy: `npm run build` → `dist/`.
 
 ## Stack
 
 - **Framework**: SvelteKit 2 + Svelte 5 (runes mode), adapter-static → `dist/`
 - **CSS**: Tailwind CSS v4 via `@tailwindcss/vite`
-- **Charts**: Vega-Lite (log-log scatter of pk vs sig size)
+- **Charts**: Vega-Lite (zoo scatter on the main + advanced pages)
 - **Language**: TypeScript throughout
 
 ## Development
@@ -36,27 +41,43 @@ npm run test:e2e      # E2E tests (Playwright, builds site first)
 
 Vitest with node environment. Tests pure TypeScript functions only — no Svelte components, no browser.
 
-- `data.test.ts` — `processYamlSchemes()`: tag filtering, version selection, field computation, flag propagation
+- `data.test.ts` — `processYamlSchemes()`: tag filtering, version selection, field computation, flag propagation, lowest-level curation
+- `mystenBench.test.ts` — `parseMystenBenchCsv()` / `aggregateByScheme()`: pq-sig-bench CSV parsing, pending state, per-scheme averaging across implementations
 - `filterStore.test.ts` — `buildUrlParams()`: URL encoding of filter state
 
 **Adding unit tests:** create `src/lib/__tests__/<module>.test.ts`. Import directly from `$lib/...`.
 Pass mock `SchemeYaml[]` objects to `processYamlSchemes` — no fixture files needed.
-Do not import from `$app/*` or `$lib/schemeData` (these need the Vite/SvelteKit runtime).
+Do not import from `$app/*`, `$lib/schemeData`, or `$lib/mystenBenchData` (these need the Vite/SvelteKit runtime).
 
 ### E2E tests — `e2e/*.spec.ts`
 
 Playwright against a built static site. The playwright config runs `npm run build && npm run preview -- --port 4175` automatically (`reuseExistingServer: true`, so a running preview server is reused for speed).
 
-- `main.spec.ts` — main page: heading, Vega chart render, advanced link, round selector, table
+- `main.spec.ts` — main page: heading, Sui lens (lean columns, assurance badges, FIPS chips), Vega chart render, advanced link, filter levels, traffic-light shading, table
 - `advanced.spec.ts` — advanced page: axis controls, heading updates, URL encoding/restoration, filter panel
 
 **Adding E2E tests:** add to `e2e/main.spec.ts` or `e2e/advanced.spec.ts`, or create a new `e2e/<feature>.spec.ts`.
-Use `page.waitForFunction(() => [...document.querySelectorAll('svg')].some(s => s.querySelector('g')), { timeout: 15_000 })` to wait for the Vega chart to render before asserting on it.
+Use `page.waitForFunction(() => [...document.querySelectorAll('svg')].some(s => s.querySelector('g')), { timeout: 15_000 })` to wait for a Vega chart to render before asserting on it.
 Axis URL params: `x`, `y` (field name), `xs`, `ys` (scale: `log`|`linear`). Default values omitted from URL.
 
 ## Data
 
 Source of truth is `data/schemes/*.yaml` — one YAML file per scheme.
+
+### Curation rules (fork-specific)
+
+Only these schemes are kept; do not re-add others without a decision:
+
+- FIPS / standards track: ML-DSA, SLH-DSA, Falcon (FN-DSA)
+- NIST on-ramp Round 3 survivors (NIST IR 8610): HAWK, SQIsign, FAEST, MQOM, SDitH, UOV, MAYO, QR-UOV, SNOVA
+- Classical baselines: EdDSA, ECDSA
+
+The data layer additionally keeps only each scheme's **lowest** NIST-level parameter
+sets (all variants at that level survive). This is `LOWEST_LEVEL_ONLY` +
+`lowestLevelSets()` in `src/lib/data.ts`; flip the const to restore full lists.
+Stacked on top, `MAX_NIST_LEVEL = 2` drops every set above level 2 (Pre-Quantum
+baselines always pass) — a scheme whose floor is level 3+ disappears entirely.
+Raise the const to widen; the filter checkboxes follow via `SELECTABLE_LEVELS`.
 
 Schema per file:
 ```yaml
@@ -91,6 +112,93 @@ parametersets) or overridden per-parameterset.
 The YAML files are bundled at build time via a Vite plugin (`vite.config.ts`) and
 `import.meta.glob` in `src/lib/schemeData.ts`.
 
+### Mysten measured benchmarks — `data/mysten/*.csv`
+
+Our own runs of the [pq-sig-bench](https://github.com/mahdi-mysten/pq-sig-bench)
+harness, measured **through fastcrypto** — currently the
+[`mahdi/fn-dsa-512`](https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512)
+branch, pre-merge — the stack a Sui validator would run. One CSV:
+`mac-m2-max.csv` (Apple M2 Max — the only machine class the lens reports; there
+is no host toggle). One row per **(scheme, implementation)**; the harness now
+benches one implementation per scheme — the one Sui would actually run — except
+FN-DSA-1024, which has no fastcrypto implementation yet and is measured via
+PQClean's reference C instead. `aggregateByScheme()` still averages when a
+scheme has more than one impl row (kept generic — ML-DSA used to be benched
+across five implementations and may be again).
+
+Header (must match `MYSTEN_BENCH_HEADER` in `src/lib/mystenBench.ts` and the
+pq-sig-bench harness output exactly):
+
+```
+scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519
+```
+
+`#`-comment lines and blank lines are ignored. Verify medians are over 1000
+iterations; keygen/sign over 100. `vs_ed25519` is the harness-computed,
+**intra-run** ratio against the Ed25519 row — never recompute it across runs.
+Import new runs with `npm run import-bench -- <results.csv>`
+(`scripts/import-mysten-bench.js` — validates the header and row count, then
+overwrites `data/mysten/mac-m2-max.csv` wholesale): rows carried over from
+older runs must be re-appended by hand.
+
+Carried-over rows (currently the four SLH-DSA rows in `mac-m2-max.csv`, from the
+earlier pq-bench run) use the impl label `earlier pq-bench run`
+(`OLDER_RUN_IMPL` in `src/lib/mystenBench.ts`); their vs_ed25519 is against that
+run's own Ed25519 baseline (44375 ns) and is displayed as recorded, without any
+visual marker.
+
+Parsing (`parseMystenBenchCsv`) and per-scheme averaging (`aggregateByScheme` —
+means over the impls that report a field) live in `src/lib/mystenBench.ts` (pure,
+unit-tested); the `import.meta.glob` `?raw` loader is `src/lib/mystenBenchData.ts`.
+
+### TypeScript keygen/sign benchmark — `data/mysten/ts-bench.csv`
+
+The Sui lens's Keygen/Sign columns are a **separate measurement** from the Rust
+verify numbers above: validators run Rust, but signing happens client-side in
+wallets (browser extensions, mobile apps), which are typically JS/TS — this
+benches that stack instead, through the libraries a Sui wallet would actually
+use. `scripts/ts-bench.ts` benches all 8 `DISPLAY_SCHEMES`: Ed25519 via
+[`@mysten/sui`](https://www.npmjs.com/package/@mysten/sui)
+(`Ed25519Keypair.generate()` / `.sign()`, async), the PQ schemes via
+[`@noble/post-quantum`](https://github.com/paulmillr/noble-post-quantum)
+(`ml_dsa44/65/87`, `slh_dsa_shake_128s/128f`, `falcon512padded`/`falcon1024padded`
+— the **padded** Falcon variant, matching the fixed-size wire format
+`mac-m2-max.csv` already uses). Both libraries are devDependencies of this repo
+(not the SvelteKit app's runtime deps — only the script imports them).
+
+Method mirrors pq-sig-bench: warmup 2, median of N iterations, a fresh random
+key every keygen call and a fresh random message under one fixed key every sign
+call (ML-DSA and Falcon both use rejection sampling, so a fixed input would
+understate their real variance — same reasoning pq-sig-bench documents for its
+own sign benchmark). N is 1000 for schemes cheap enough to finish quickly, 100
+for the rest, and 30 specifically for SLH-DSA-SHAKE-128s (`SLOW_ITER_CAPS` in
+the script) — its sign is ~7.5 s/op in pure JS (no hardware SHA/SHAKE
+acceleration), so even 100 iterations would take ~12.5 minutes for that one
+scheme alone. The exact N used is written per row (`keygen_iters`/`sign_iters`),
+never assumed — the lens shows it in each cell's tooltip.
+
+Before timing anything, each scheme's pk/sig byte lengths are checked against
+the values already established in `mac-m2-max.csv` (`EXPECTED_SIZES` in the
+script) — this is what catches a wrong parameter set or wire variant (e.g.
+non-padded Falcon) before its timing gets trusted, mirroring pq-sig-bench's own
+self-check-before-timing gate. `checkSizes()` throws its own descriptive error
+if a scheme has no `EXPECTED_SIZES` entry at all (rather than a bare
+`TypeError`) — a guard for whoever adds a 9th scheme later.
+
+The script also computes `keygen_vs_ed25519`/`sign_vs_ed25519` itself — each
+scheme's keygen/sign time divided by this same run's own Ed25519 row — exactly
+the same "harness computes its own ratio, UI never recomputes it" rule
+`vs_ed25519` already follows in `mac-m2-max.csv`. The two Ed25519 baselines
+(this file's vs. `mac-m2-max.csv`'s) are never compared against each other:
+Keygen/Sign ratios are intra-`ts-bench.csv`, Verify's ratio is
+intra-`mac-m2-max.csv`.
+
+Requires Node ≥22.6 (runs the `.ts` file directly via native TypeScript
+support — no build step, no `tsx`/`ts-node`). Re-run: `node scripts/ts-bench.ts`
+(writes `data/mysten/ts-bench.csv` directly — no import step, unlike the Rust
+harness, since this script runs inside this repo). Parsing lives in
+`src/lib/tsBench.ts` (pure, unit-tested); the loader is `src/lib/tsBenchData.ts`.
+
 ### History
 
 `data/history.yaml` — chronological log of notable events shown in the site's history panel.
@@ -104,69 +212,31 @@ The YAML files are bundled at build time via a Vite plugin (`vite.config.ts`) an
 ```
 
 Types: `update` (spec/data change), `attack` (new cryptanalysis result), `milestone` (NIST process event).
-
-### KEMs
-
-`data/kems/*.yaml` — one YAML file per KEM, source of truth for the standalone KEM
-comparison at `/kems/`. This is a **one-off** page, not tied to a NIST round: no version
-history, no round tags. Carries sizes (pk, ct) and benchmark timings.
-
-```yaml
-name: ML-KEM
-website: https://...
-category: Lattices | Code-based | Pre-Quantum | ...
-assumption: ...
-status: FIPS | To be standardized | Classic cryptography | ...
-broken: false        # or "classical" (pre-quantum schemes) / description
-warning: false
-info: false
-parametersets:
-  - name: ML-KEM-768
-    level: 3           # 1-5 or "Pre-Quantum"
-    pk: 1184
-    ct: 1088
-    keygen_cycles: 20016    # optional; written by bench-kem/update_scheme_data.py
-    encaps_cycles: 20067
-    decaps_cycles: 21264
-    keygen_us: 13.4
-    encaps_us: 13.4
-    decaps_us: 14.2
-    notes: null
-```
-
-Benchmark fields are optional and produced by `bench-kem/update_scheme_data.py` from a
-`bench-kem/results/*.txt` run; that script also writes `data/kem_benchmark_env.yaml`
-(loaded as `kemBenchmarkEnv`, shown via `BenchmarkEnvInfo` on the page). The table shows
-keygen/encaps/decaps µs; when only cycles are present the time is extrapolated (wavy
-underline) at `KEM_CPUSPEED` (2.5 GHz).
-
-Flags (`broken`/`warning`/`info`) set at scheme level apply to all parameter sets, overridable
-per parameter set. Loaded via `import.meta.glob` in `src/lib/kemSchemeData.ts`; flattened by
-`processKemSchemes()` in `src/lib/kemData.ts` (pure, unit-tested). The page is self-contained
-and does **not** reuse the signature `filterStore` singleton: `kemData.ts` also exports pure
-`computeKemRanges()` / `defaultKemFilter()` / `filterKemRows()`, the page holds filter state in a
-`$state` rune and derives `filteredRows`, and `KemFilterPanel` (scheme/level/size, `bind:filter`),
-`KemTable` (local sort) and `KemScatterPlot` (pk vs ct, shape by category, colour by level) all
-take plain props.
+Entries may reference schemes that were pruned from `data/schemes/` — the timeline is
+history, not the curated list.
 
 ## Architecture
 
 ```
 data/
-├── schemes/          # one .yaml per signature scheme (source of truth)
-├── kems/             # one .yaml per KEM (source of truth for /kems/)
+├── schemes/          # one .yaml per curated signature scheme (source of truth)
+├── mysten/           # measured pq-sig-bench CSV (mac-m2-max) — no other host
 └── history.yaml      # chronological event log (attacks, updates, milestones)
 
 src/
 ├── lib/
-│   ├── types.ts          # Scheme, ParameterSet, SchemeYaml, VersionYaml, FilterState, Kem* types
-│   ├── constants.ts      # CPUSPEED, NIST_LEVELS
-│   ├── data.ts           # processYamlSchemes() — tag-filtered YAML → Scheme[] + ParameterSet[]
-│   ├── kemData.ts        # processKemSchemes() — KEM YAML → KemScheme[] + KemParameterSet[] (pure)
+│   ├── types.ts          # Scheme, ParameterSet, SchemeYaml, VersionYaml, FilterState types
+│   ├── constants.ts      # CPUSPEED, NIST_LEVELS, PENDING_FIPS
+│   ├── data.ts           # processYamlSchemes() + LOWEST_LEVEL_ONLY + MAX_NIST_LEVEL curation
+│   ├── format.ts         # shared cell formatters (fmt, fmtCycles, fmtTime)
+│   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
+│   ├── mystenBench.ts    # pq-sig-bench CSV parser + per-scheme impl averaging (pure)
+│   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench
+│   ├── tsBench.ts        # ts-bench.ts CSV parser (pure)
+│   ├── tsBenchData.ts    # import.meta.glob ?raw loader → tsBench
+│   ├── suiNotes.ts       # per-scheme implementation-assurance badges for the lens
 │   ├── filterStore.ts    # Svelte writable store + derived filteredRows + URL codec
-│   ├── roundStore.ts     # writable<'round-1'|'round-2'|'round-3'|'latest'> — drives dataset selection
 │   ├── schemeData.ts     # import.meta.glob loader → allSchemeData: SchemeYaml[]
-│   ├── kemSchemeData.ts  # import.meta.glob loader → allKemData: KemSchemeYaml[]
 │   ├── themeStore.ts     # dark/light/system theme store → localStorage
 │   ├── yaml.d.ts         # TypeScript module declaration for *.yaml imports
 │   └── components/
@@ -175,29 +245,31 @@ src/
 │       ├── RangeField.svelte     # reusable number input
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
-│       ├── KemTable.svelte       # KEM size table (rows prop, local sort)
-│       ├── KemScatterPlot.svelte # KEM pk-vs-ct Vega-Lite scatter (rows prop)
-│       └── KemFilterPanel.svelte # KEM scheme/level/size filters (bind:filter)
+│       └── SuiLens.svelte        # Sui on-chain lens: 7-column measured table (Scheme·Std·pk+sig·Keygen·Sign·Verify·Assurance)
 └── routes/
-    ├── +layout.svelte    # nav (logo, round selector, Signatures/KEMs/History links, dark toggle), footer
+    ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
     ├── +page.ts          # load: processYamlSchemes('round-3', {useLatestVersion:true}), createFilterStore
-    ├── +page.svelte      # page composition, round switching, URL state sync
+    ├── +page.svelte      # SuiLens hero, page composition, URL state sync
     ├── advanced/
     │   ├── +page.ts      # same load as main page
     │   └── +page.svelte  # axis selectors, scale toggles, ScatterPlot, FilterPanel, SchemeTable
-    └── kems/
-        ├── +page.ts      # load: processKemSchemes(allKemData); trailingSlash 'always'
-        └── +page.svelte  # KEM hero, KemScatterPlot, KemTable
+    └── history/
+        ├── +page.ts      # loads data/history.yaml
+        └── +page.svelte  # timeline
+
+scripts/
+├── import-mysten-bench.js  # npm run import-bench -- <csv>; header/row validation
+└── ts-bench.ts              # node scripts/ts-bench.ts; keygen/sign benchmark → ts-bench.csv
 
 tests/
 ├── src/lib/__tests__/   # Vitest unit tests (vitest.config.ts)
 │   ├── data.test.ts
-│   ├── kemData.test.ts
+│   ├── mystenBench.test.ts
+│   ├── tsBench.test.ts
 │   └── filterStore.test.ts
 └── e2e/                 # Playwright E2E tests (playwright.config.ts)
     ├── main.spec.ts
-    ├── advanced.spec.ts
-    └── kems.spec.ts
+    └── advanced.spec.ts
 ```
 
 ### Data Processing
@@ -206,36 +278,75 @@ tests/
 - With `tagFilter` (e.g. `'round-2'`): picks the latest version whose `tags` includes that value.
 - Fallback: schemes with no tags on any version are always included (reference schemes like ML-DSA).
 - Schemes that have tags but none matching `tagFilter` are excluded.
+- After version selection, `lowestLevelSets()` drops every parameter set above the
+  scheme's lowest NIST level (when `LOWEST_LEVEL_ONLY` is true).
+
+### Sui On-Chain Lens
+
+`SuiLens.svelte` on the main page — a deliberately minimal decision table, seven
+columns: **Scheme · Std · pk+sig (B) · Keygen (browser) · Sign (browser) ·
+Verify (server) · Assurance**. It shows only the FIPS-track schemes we have
+measured through fastcrypto; the on-ramp candidates live in the full zoo table
+below, not here. Column order follows the signature lifecycle (keygen → sign →
+verify), and the header labels say plainly where each op runs: Keygen/Sign are
+wallet-side (TypeScript, browser/mobile — see the `ts-bench.csv` section above),
+Verify is validator-side (Rust, the server). These are two independent
+measurements joined by scheme name; each degrades to `—` on its own if that
+scheme is missing from its respective CSV. There is no standalone "vs Ed25519"
+column — each of pk+sig/Keygen/Sign/Verify shows its own ratio inline as a
+`(X.X×)` suffix right after its value (`ratioSuffix` snippet), sourced from
+that column's own CSV (Keygen/Sign from `ts-bench.csv`'s
+`keygen_vs_ed25519`/`sign_vs_ed25519`, Verify from `mac-m2-max.csv`'s
+`vs_ed25519`) — the two Ed25519 baselines are never mixed. pk+sig's ratio is
+the only one computed client-side rather than by a harness: byte lengths are
+static, not a noisy measurement, so there's nothing for a harness to own.
+- Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, FN-DSA-1024,
+  ML-DSA-44, ML-DSA-65, ML-DSA-87, SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The
+  CSV still carries the SLH-DSA SHA2 variants; they're just not in this view.
+- Measured rows come from `data/mysten/mac-m2-max.csv`, one row per scheme via
+  `aggregateByScheme()`. No host toggle — the lens reports Mac M2 Max only.
+- FN-DSA-512 and all three ML-DSA levels are each a single measured
+  implementation (fastcrypto; aws-lc-rs) — the `(avg N)` marker and impl-spread
+  tooltip only appear if a scheme's CSV rows ever span more than one impl again.
+  FN-DSA-1024 has no fastcrypto implementation yet, so it measures PQClean's
+  reference C directly — a different codebase than Sui would ship, flagged as
+  such in its Assurance pill.
+- Every ratio is harness-computed and intra-run — never recomputed by the UI. A
+  footnote states the Ed25519 batching caveat (validators batch-verify Ed25519,
+  ~2× amortized; no PQ scheme batches — the practical on-chain gap is about 2×
+  the Verify column's ratio).
+- Std chips name the concrete standard: "FIPS 204"/"FIPS 205" from the picked
+  version's label (`fipsChipLabel` in `$lib/format`), and "FIPS 206 pending" for
+  Falcon via `PENDING_FIPS` in `$lib/constants` (same in `SchemeTable`).
+- The **Assurance** column (`src/lib/suiNotes.ts`) is the practical "can we trust
+  the code" axis: one colored pill per scheme — green (`strong`: audited / formally
+  verified) or amber (`mid`: correctness-gated but unaudited, or not the
+  implementation Sui would ship) — with a muted "unaudited" suffix where no
+  independent audit exists, and the term explained in the pill's tooltip.
+  Ed25519 = Audited; FN-DSA-512 = KAT-gated (Round-3 KATs + PQClean cross-verify);
+  FN-DSA-1024 = Reference impl (PQClean C, no fastcrypto impl yet); ML-DSA-44/65/87
+  = Formally verified (aws-lc-rs delegates to mldsa-native's CBMC + HOL Light
+  proofs); SLH-DSA = ACVP-gated.
 
 ### Filter Store
 
 `src/lib/filterStore.ts` uses stable module-level store references. `_store` and `_filteredRows`
-are created once; `createFilterStore()` on subsequent calls (round changes) updates `_allRows`
+are created once; `createFilterStore()` on subsequent calls (page navigations) updates `_allRows`
 and resets `_store` in place. This means components calling `getFilterStore()` at init always
 hold valid references — no stale subscription bugs.
 
 Category checkbox state is **derived** from the scheme set, not stored separately.
 
 URL state: filter params encoded as query params, applied client-side in `onMount`.
-Round encoded as `?r=1` for round-1, `?r=2` for round-2. No param = latest (default).
 
-### Round Selector
+### Dataset (pinned)
 
-Nav shows Latest / Round 2 / Round 1 toggle (only on home page). Clicking updates `roundStore`,
-which triggers `applyRound()` in `+page.svelte`, which calls `createFilterStore()` with new data.
-
-### Latest View
-
-"Latest" (default) and "Round 3" both use `tagFilter='round-3'` with `useLatestVersion=true`.
+The round selector is gone. Both pages use `tagFilter='round-3'` with `useLatestVersion=true`.
 Inclusion: scheme must have at least one version tagged `round-3` (or be an untagged reference
 scheme). Data shown: `sorted[0]` (newest version by date, regardless of tags).
 
-Round 2 view uses `tagFilter='round-2'` without `useLatestVersion` — shows the pinned
-round-2 submission version.
-
-Post-round-3 spec updates should be added as new version entries **without** any tags. This way:
-- Round 2/3 views show pinned submission data.
-- Latest view shows the most current specs.
+Post-round-3 spec updates should be added as new version entries **without** any tags so the
+pinned view keeps showing the most current specs.
 
 ### Performance Data
 
@@ -253,3 +364,9 @@ GitHub Actions workflow at `.github/workflows/deploy.yml`:
 ## round-1/
 
 Contains a standalone snapshot of round-1 data. **Do not modify.** Served at `/round-1/`.
+
+## bench/
+
+Upstream's C benchmark harness (dlopen shims per scheme, rdpmc/rdtsc cycle counting).
+Kept for reference; the Sui lens uses the sui-pq pq-bench numbers instead. See
+`bench/CLAUDE.md`.

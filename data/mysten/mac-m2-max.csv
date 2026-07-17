@@ -1,0 +1,20 @@
+# pq-sig-bench results (github.com/mahdi-mysten/pq-sig-bench), measured through
+# fastcrypto (MystenLabs/fastcrypto, mahdi/fn-dsa-512 branch — pre-merge) on the
+# Apple M2 Max. One implementation per row: the one Sui would actually run,
+# except FN-DSA-1024 (no fastcrypto impl yet — PQClean's reference C instead).
+# Verify = median of 1000 iterations, keygen/sign of 100. vs_ed25519 is the
+# harness's own intra-run ratio — never recomputed here.
+scheme,impl,pk_len,sig_len,sk_len,keygen_ns,sign_ns,verify_ns,verify_cyc,verify_iters,vs_ed25519
+Ed25519,fastcrypto (baseline),32,64,,10400,11200,27900,,1000,1.00
+FN-DSA-512,fastcrypto,897,666,,8330000,2750000,13200,,1000,0.47
+FN-DSA-1024,PQClean C,1793,1280,,26250000,5930000,50000,,1000,1.79
+ML-DSA-44,aws-lc-rs,1312,2420,,18000,46700,14500,,1000,0.52
+ML-DSA-65,aws-lc-rs,1952,3309,,28700,66600,24300,,1000,0.87
+ML-DSA-87,aws-lc-rs,2592,4627,,45000,84500,39700,,1000,1.42
+# SLH-DSA rows are carried over from an earlier pq-bench run on this same machine
+# (that run's own Ed25519 baseline: 44375 ns) — pq-sig-bench does not bench
+# SLH-DSA yet. Their vs_ed25519 ratios are intra-run against that older baseline.
+SLH-DSA-SHAKE-128s,earlier pq-bench run,32,7856,64,129455667,991862791,980500,,1000,22.1
+SLH-DSA-SHAKE-128f,earlier pq-bench run,32,17088,64,2051708,48020167,2845250,,1000,64.1
+SLH-DSA-SHA2-128s,earlier pq-bench run,32,7856,64,102705500,783764459,778500,,1000,17.5
+SLH-DSA-SHA2-128f,earlier pq-bench run,32,17088,64,1617167,37558334,2221792,,1000,50.1

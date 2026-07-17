@@ -1,26 +1,20 @@
 <script lang="ts">
-	import type { SortableColumn } from '$lib/types';
+	import type { ParameterSet, SortableColumn } from '$lib/types';
+	import { PENDING_FIPS } from '$lib/constants';
+	import { fipsChipLabel, fmt, fmtCycles, fmtTime } from '$lib/format';
 	import { getFilterStore } from '$lib/filterStore';
+	import { sizeCellClass, signCellClass, verifyCellClass } from '$lib/trafficLight';
 	import SecurityBadge from './SecurityBadge.svelte';
 
 	const { store, filteredRows } = getFilterStore();
 
-	function fmt(n: number) {
-		return n.toLocaleString();
+	// µs actually shown in the timing cells (measured, or the 2.5 GHz cycle
+	// conversion) — the traffic-light bucket must match the displayed number.
+	function shownSignUs(row: ParameterSet): number | null {
+		return row.signingUs ?? (row.signingCycles > 0 ? row.signingCycles / 2500 : null);
 	}
-
-	function fmtCycles(n: number): string {
-		if (n <= 0) return '—';
-		if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'G';
-		if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-		if (n >= 1_000) return (n / 1_000).toFixed(0) + 'K';
-		return String(n);
-	}
-
-	function fmtTime(us: number): string {
-		if (us >= 1_000_000) return (us / 1_000_000).toFixed(2) + ' s';
-		if (us >= 1_000) return (us / 1_000).toFixed(2) + ' ms';
-		return us.toFixed(1) + ' µs';
+	function shownVerifyUs(row: ParameterSet): number | null {
+		return row.verificationUs ?? (row.verificationCycles > 0 ? row.verificationCycles / 2500 : null);
 	}
 
 	const COLUMNS: { key: SortableColumn; label: string; numeric?: boolean }[] = [
@@ -95,9 +89,11 @@
 					<!-- Status -->
 					<td class="whitespace-nowrap px-3 py-1.5">
 						{#if row.status === 'FIPS'}
-							<span class="rounded bg-pqs-apricot/20 px-1.5 py-0.5 text-xs font-semibold text-pqs-apricot">FIPS</span>
+							<span class="rounded bg-pqs-apricot/20 px-1.5 py-0.5 text-xs font-semibold text-pqs-apricot">{fipsChipLabel(row.version)}</span>
 						{:else if row.status === 'To be standardized'}
-							<span class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray">Std pending</span>
+							<span class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray">
+								{PENDING_FIPS[row.scheme] ? `${PENDING_FIPS[row.scheme]} pending` : 'Std pending'}
+							</span>
 						{:else if row.status === 'Classic cryptography'}
 							<span class="text-pqs-steel/70 dark:text-pqs-bluegray/70">Classic</span>
 						{:else}
@@ -111,13 +107,13 @@
 						{row.level === 'Pre-Quantum' ? 'N/A' : row.level}
 					</td>
 					<!-- pk -->
-					<td class="px-3 py-1.5 text-right tabular-nums">{fmt(row.pk)}</td>
+					<td class="px-3 py-1.5 text-right tabular-nums {sizeCellClass(row.pk)}">{fmt(row.pk)}</td>
 					<!-- sig -->
-					<td class="px-3 py-1.5 text-right tabular-nums">{fmt(row.sig)}</td>
+					<td class="px-3 py-1.5 text-right tabular-nums {sizeCellClass(row.sig)}">{fmt(row.sig)}</td>
 					<!-- pk+sig -->
-					<td class="px-3 py-1.5 text-right tabular-nums">{fmt(row.pkPlusSig)}</td>
+					<td class="px-3 py-1.5 text-right tabular-nums {sizeCellClass(row.pkPlusSig)}">{fmt(row.pkPlusSig)}</td>
 					<!-- signing time -->
-					<td class="px-3 py-1.5 text-right tabular-nums">
+					<td class="px-3 py-1.5 text-right tabular-nums {signCellClass(shownSignUs(row))}">
 						{#if row.signingUs != null}
 							{fmtTime(row.signingUs)}
 						{:else if row.signingCycles > 0}
@@ -133,7 +129,7 @@
 						{/if}
 					</td>
 					<!-- verification time -->
-					<td class="px-3 py-1.5 text-right tabular-nums">
+					<td class="px-3 py-1.5 text-right tabular-nums {verifyCellClass(shownVerifyUs(row))}">
 						{#if row.verificationUs != null}
 							{fmtTime(row.verificationUs)}
 						{:else if row.verificationCycles > 0}
@@ -175,6 +171,8 @@
 		<span class="ml-2">ℹ️ note</span>
 		<span class="ml-2">·</span>
 		<span class="ml-2"><span class="underline decoration-wavy decoration-pqs-scarlet">value</span> estimated from cycle counts</span>
+		<span class="ml-2">·</span>
+		<span class="ml-2">cell shading: <span class="rounded bg-green-200/70 px-1 dark:bg-green-500/25">light</span> → <span class="rounded bg-red-200/80 px-1 dark:bg-red-500/25">heavy</span> vs the Ed25519 baseline</span>
 		<span class="ml-2">· tap icons for details</span>
 	</div>
 </div>

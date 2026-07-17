@@ -1,4 +1,0 @@
-bench-kem
-build/
-schemes/*/build/
-schemes/*/.stamp

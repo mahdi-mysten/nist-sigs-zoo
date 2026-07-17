@@ -1,5 +1,5 @@
 import { CPUSPEED } from './constants';
-import type { DataRanges, NistLevel, ParameterSet, Scheme, SchemeYaml } from './types';
+import type { DataRanges, NistLevel, ParameterSet, ParameterSetYaml, Scheme, SchemeYaml } from './types';
 
 function parseCsv(text: string): Record<string, string>[] {
 	const lines = text.trim().split('\n');
@@ -42,6 +42,8 @@ export function parseSchemes(csv: string): Scheme[] {
 	return parseCsv(csv).map((d) => ({
 		scheme: d['Scheme'],
 		status: d['NIST status'],
+		// Legacy CSV path has no version label; the FIPS chip falls back to plain "FIPS".
+		version: '',
 		website: d['Website'],
 		category: d['Category'],
 		assumption: d['Assumption'],
@@ -148,6 +150,39 @@ export function parseParameterSets(
 	return { rows, ranges };
 }
 
+// Sui lens curation: the PQ-authenticator decision is made at each scheme's floor
+// security level — the sets a chain would deploy first — so higher levels only add
+// spread without changing the ranking. Flip to false to restore full parameter lists.
+export const LOWEST_LEVEL_ONLY = true;
+
+// Level cap, stacked on top of LOWEST_LEVEL_ONLY: the Sui authenticator would
+// deploy at NIST level 1 or 2, so higher-level sets are out of scope — and a
+// scheme whose *floor* is level 3+ disappears entirely (intended). Raise this
+// to widen the zoo again. Pre-Quantum baselines (EdDSA/ECDSA) always pass.
+export const MAX_NIST_LEVEL = 2;
+
+export function withinLevelCap(level: NistLevel | number): boolean {
+	return level === 'Pre-Quantum' || (typeof level === 'number' && level <= MAX_NIST_LEVEL);
+}
+
+// The only levels the curated data can contain — drives the filter checkboxes
+// and the default filter state, so widening MAX_NIST_LEVEL updates those too.
+export const SELECTABLE_LEVELS: NistLevel[] = (
+	['Pre-Quantum', 1, 2, 3, 4, 5] as NistLevel[]
+).filter(withinLevelCap);
+
+const LEVEL_ORDER: Record<string, number> = {
+	'Pre-Quantum': 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5,
+};
+
+// Keep every set at the scheme's lowest level: genuine variants there (SLH-DSA s/f
+// and SHA2/SHAKE, UOV pkc/classic, …) are distinct trade-offs, so the cut is by
+// level, never by name.
+function lowestLevelSets(sets: ParameterSetYaml[]): ParameterSetYaml[] {
+	const lowest = Math.min(...sets.map((ps) => LEVEL_ORDER[String(ps.level)] ?? 99));
+	return sets.filter((ps) => (LEVEL_ORDER[String(ps.level)] ?? 99) === lowest);
+}
+
 export function processYamlSchemes(
 	schemeData: SchemeYaml[],
 	tagFilter?: string,
@@ -182,9 +217,16 @@ export function processYamlSchemes(
 			latest = sorted[0];
 		}
 
+		const parametersets = (
+			LOWEST_LEVEL_ONLY ? lowestLevelSets(latest.parametersets) : latest.parametersets
+		).filter((ps) => withinLevelCap(ps.level));
+		// Floor above MAX_NIST_LEVEL: the whole scheme drops out of the zoo.
+		if (parametersets.length === 0) continue;
+
 		const scheme: Scheme = {
 			scheme: yaml.name,
 			status: latest.status,
+			version: latest.version,
 			website: yaml.website,
 			category: yaml.category,
 			assumption: yaml.assumption,
@@ -196,7 +238,7 @@ export function processYamlSchemes(
 		};
 		schemes.push(scheme);
 
-		for (const ps of latest.parametersets) {
+		for (const ps of parametersets) {
 			const level: NistLevel =
 				ps.level === 'Pre-Quantum' ? 'Pre-Quantum' : (ps.level as 1 | 2 | 3 | 4 | 5);
 

@@ -1,0 +1,19 @@
+# TypeScript keygen/sign benchmarks (scripts/ts-bench.ts) — wallet-side cost,
+# measured through the libraries a Sui wallet would actually use: @mysten/sui
+# for Ed25519, @noble/post-quantum for the PQ schemes. A different axis from
+# the Rust/fastcrypto verify numbers in mac-m2-max.csv (validators run Rust;
+# wallets typically run JS/TS). Median of N iterations (keygen_iters/
+# sign_iters — 1000 where cheap, 100 where not), warmup 2, fresh random
+# key/message every iteration. *_vs_ed25519 are intra-run ratios against this
+# same file's own Ed25519 row — never recompute them against mac-m2-max.csv's.
+# Re-run: node scripts/ts-bench.ts
+# Apple M2 Max (macOS, arm64), v26.4.0.
+scheme,lib,keygen_ns,sign_ns,keygen_iters,sign_iters,keygen_vs_ed25519,sign_vs_ed25519
+Ed25519,@mysten/sui,128500,248833,1000,1000,1.00,1.00
+ML-DSA-44,@noble/post-quantum,1099625,5490875,1000,1000,8.56,22.07
+ML-DSA-65,@noble/post-quantum,1868667,8921459,1000,1000,14.54,35.85
+ML-DSA-87,@noble/post-quantum,2888625,10677041,1000,1000,22.48,42.91
+SLH-DSA-SHAKE-128s,@noble/post-quantum,1013702541,7634800292,30,30,7888.74,30682.43
+SLH-DSA-SHAKE-128f,@noble/post-quantum,15646209,366809000,100,100,121.76,1474.12
+FN-DSA-512,@noble/post-quantum,88421833,1895833,100,100,688.11,7.62
+FN-DSA-1024,@noble/post-quantum,301768958,3948709,100,100,2348.40,15.87
