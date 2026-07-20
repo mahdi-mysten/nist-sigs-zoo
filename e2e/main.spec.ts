@@ -101,13 +101,13 @@ test.describe('Sui on-chain lens', () => {
 	test('Keygen/Sign columns render TypeScript-measured times for every row', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
-		// 8 measured rows; no row should be left showing the "no data" dash
-		await expect(lens.locator('table tbody tr')).toHaveCount(8);
+		// 10 measured rows; no row should be left showing the "no data" dash
+		await expect(lens.locator('table tbody tr')).toHaveCount(10);
 		const keygenCells = lens.locator('table tbody tr td:nth-child(4)');
 		const signCells = lens.locator('table tbody tr td:nth-child(5)');
-		await expect(keygenCells).toHaveCount(8);
-		await expect(signCells).toHaveCount(8);
-		for (let i = 0; i < 8; i++) {
+		await expect(keygenCells).toHaveCount(10);
+		await expect(signCells).toHaveCount(10);
+		for (let i = 0; i < 10; i++) {
 			await expect(keygenCells.nth(i)).not.toHaveText('—');
 			await expect(signCells.nth(i)).not.toHaveText('—');
 		}
@@ -129,11 +129,13 @@ test.describe('Sui on-chain lens', () => {
 		await expect(slhRow.locator('td:nth-child(5)')).not.toContainText('(1.0×)');
 	});
 
-	test('SLH-DSA-SHAKE-128s keygen/sign use a reduced iteration count', async ({ page }) => {
+	test('SLH-DSA-SHAKE-128s and SHA2-128s keygen/sign use scheme-specific reduced iteration counts', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
-		const row = lens.locator('tr', { hasText: 'SLH-DSA-SHAKE-128s' });
-		await expect(row.locator('[title*="median of 30 iterations"]')).toHaveCount(2);
+		const shakeRow = lens.locator('tr', { hasText: 'SLH-DSA-SHAKE-128s' });
+		await expect(shakeRow.locator('[title*="median of 30 iterations"]')).toHaveCount(2);
+		const sha2Row = lens.locator('tr', { hasText: 'SLH-DSA-SHA2-128s' });
+		await expect(sha2Row.locator('[title*="median of 50 iterations"]')).toHaveCount(2);
 	});
 
 	test('ML-DSA is shown at all three benched security levels', async ({ page }) => {
@@ -164,9 +166,9 @@ test.describe('Sui on-chain lens', () => {
 	test('unaudited suffix appears even on the strong-tier ML-DSA pill', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
-		// Only Ed25519 is genuinely audited; every PQ row (7 of 8) carries the suffix,
+		// Only Ed25519 is genuinely audited; every PQ row (9 of 10) carries the suffix,
 		// including "Formally verified" ML-DSA — proofs aren't a substitute for an audit.
-		await expect(lens.getByText('unaudited', { exact: true })).toHaveCount(7);
+		await expect(lens.getByText('unaudited', { exact: true })).toHaveCount(9);
 	});
 
 	test('Ed25519 batch-verification caveat is stated', async ({ page }) => {
@@ -175,12 +177,13 @@ test.describe('Sui on-chain lens', () => {
 		await expect(lens.getByText(/batch-verify Ed25519/)).toBeVisible();
 	});
 
-	test('shows only the SHAKE SLH-DSA variants, no dagger', async ({ page }) => {
+	test('shows all four SLH-DSA variants (SHAKE and SHA2), no dagger', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.getByText('SLH-DSA-SHAKE-128s', { exact: true })).toBeVisible();
 		await expect(lens.getByText('SLH-DSA-SHAKE-128f', { exact: true })).toBeVisible();
-		await expect(lens.getByText('SLH-DSA-SHA2-128s', { exact: true })).toHaveCount(0);
+		await expect(lens.getByText('SLH-DSA-SHA2-128s', { exact: true })).toBeVisible();
+		await expect(lens.getByText('SLH-DSA-SHA2-128f', { exact: true })).toBeVisible();
 		await expect(lens.getByText('†')).toHaveCount(0);
 	});
 

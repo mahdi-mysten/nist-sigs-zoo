@@ -11,8 +11,7 @@
 	import type { Scheme } from '$lib/types';
 	import SecurityBadge from './SecurityBadge.svelte';
 
-	// The measured schemes shown, in table order. Only these render — the CSV also
-	// carries the SLH-DSA SHA2 variants, kept out of this minimal decision view.
+	// The measured schemes shown, in table order.
 	const DISPLAY_SCHEMES = [
 		'Ed25519',
 		'FN-DSA-512',
@@ -22,6 +21,8 @@
 		'ML-DSA-87',
 		'SLH-DSA-SHAKE-128s',
 		'SLH-DSA-SHAKE-128f',
+		'SLH-DSA-SHA2-128s',
+		'SLH-DSA-SHA2-128f',
 	];
 
 	// pq-sig-bench benches one implementation per row — the one Sui would actually
@@ -73,6 +74,8 @@
 		'ML-DSA-87': 'ML-DSA',
 		'SLH-DSA-SHAKE-128s': 'SLH-DSA',
 		'SLH-DSA-SHAKE-128f': 'SLH-DSA',
+		'SLH-DSA-SHA2-128s': 'SLH-DSA',
+		'SLH-DSA-SHA2-128f': 'SLH-DSA',
 	};
 	function zooSchemeFor(name: string): Scheme | undefined {
 		const mapped = MEASURED_SCHEME[name];
@@ -253,8 +256,9 @@
 		(Ed25519) and <a href="https://github.com/paulmillr/noble-post-quantum" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@noble/post-quantum</a>
 		(the PQ schemes) — the libraries a browser or mobile wallet would actually run, a different stack
 		and a different Ed25519 baseline from Verify's. Median of 1000 iterations, except SLH-DSA-SHAKE-128s
-		(30) and every other slow scheme (100) — hover a cell for the exact count; each iteration signs a
-		fresh random message under one key, matching the Rust harness's own methodology.
+		(30), SLH-DSA-SHA2-128s (50), and every other slow scheme (100) — hover a cell for the exact
+		count; each iteration signs a fresh random message under one key, matching the Rust harness's own
+		methodology.
 	</p>
 	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 		Sui validators batch-verify Ed25519, roughly halving its amortized per-signature cost; no PQ

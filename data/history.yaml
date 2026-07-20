@@ -1,5 +1,10 @@
 - date: '2026-07-14'
   type: update
+  description: "Expanded the Sui lens's SLH-DSA rows from 2 to all 4 level-1 hash-variant/speed combinations — added SLH-DSA-SHA2-128s and SLH-DSA-SHA2-128f alongside the existing SHAKE-128s/128f, in both the Rust verify data and the new TypeScript keygen/sign benchmark (<code>scripts/ts-bench.ts</code>, via <a href=\"https://github.com/paulmillr/noble-post-quantum\">@noble/post-quantum</a>'s <code>slh_dsa_sha2_128s/128f</code>). SHA2-128s signs faster than SHAKE-128s in pure JS (~2.2s/op vs ~7.5s/op) but still slow enough to get its own reduced iteration count (50, vs SHAKE-128s's 30)."
+  schemes: [SLH-DSA]
+
+- date: '2026-07-14'
+  type: update
   description: "Added Keygen/Sign columns to the Sui lens, measured separately in TypeScript through the libraries a Sui wallet would actually use (<a href=\"https://www.npmjs.com/package/@mysten/sui\">@mysten/sui</a> for Ed25519, <a href=\"https://github.com/paulmillr/noble-post-quantum\">@noble/post-quantum</a> for the PQ schemes) — a new <code>scripts/ts-bench.ts</code> in this repo, median of 1000 iterations (100, or 30 for SLH-DSA-SHAKE-128s's ~7.5s/op sign). Removed the Mac-M2-Max/Sui-validator-server host toggle entirely; the lens now reports Mac M2 Max only."
 
 - date: '2026-07-14'

@@ -26,7 +26,12 @@ import { fileURLToPath } from 'node:url';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { falcon1024padded, falcon512padded } from '@noble/post-quantum/falcon.js';
 import { ml_dsa44, ml_dsa65, ml_dsa87 } from '@noble/post-quantum/ml-dsa.js';
-import { slh_dsa_shake_128f, slh_dsa_shake_128s } from '@noble/post-quantum/slh-dsa.js';
+import {
+	slh_dsa_sha2_128f,
+	slh_dsa_sha2_128s,
+	slh_dsa_shake_128f,
+	slh_dsa_shake_128s,
+} from '@noble/post-quantum/slh-dsa.js';
 
 const WARMUP = 2;
 
@@ -38,12 +43,15 @@ const ITERS_FAST = argNum('iters-fast', 1000);
 const ITERS_SLOW = argNum('iters-slow', 100);
 // SLH-DSA-SHAKE-128s's sign is ~7.5s/op in JS (vs ~1s in Rust — pure-JS SHAKE
 // hashing has no hardware acceleration) — at ITERS_SLOW=100 that's ~12.5
-// minutes for one scheme alone. Cap its N specifically so the full script
-// still finishes in one reasonable run; every other "slow" scheme keeps 100.
-// A cap (via Math.min), not a fixed override, so passing a smaller
-// --iters-slow for a quick dry run still shrinks this scheme too.
+// minutes for one scheme alone. SLH-DSA-SHA2-128s is faster (~2.2s/op, SHA-2
+// being cheaper than SHAKE in pure JS) but still slow enough that 100 would
+// push the full script's runtime uncomfortably long. Cap both specifically so
+// the full script still finishes in one reasonable run; every other "slow"
+// scheme keeps 100. A cap (via Math.min), not a fixed override, so passing a
+// smaller --iters-slow for a quick dry run still shrinks these too.
 const SLOW_ITER_CAPS: Record<string, number> = {
 	'SLH-DSA-SHAKE-128s': 30,
+	'SLH-DSA-SHA2-128s': 50,
 };
 function slowIters(scheme: string): number {
 	return Math.min(ITERS_SLOW, SLOW_ITER_CAPS[scheme] ?? Infinity);
@@ -117,6 +125,8 @@ const EXPECTED_SIZES: Record<string, { pk: number; sig: number }> = {
 	'ML-DSA-87': { pk: 2592, sig: 4627 },
 	'SLH-DSA-SHAKE-128s': { pk: 32, sig: 7856 },
 	'SLH-DSA-SHAKE-128f': { pk: 32, sig: 17088 },
+	'SLH-DSA-SHA2-128s': { pk: 32, sig: 7856 },
+	'SLH-DSA-SHA2-128f': { pk: 32, sig: 17088 },
 };
 
 function checkSizes(scheme: string, pk: number, sig: number): void {
@@ -168,6 +178,8 @@ for (const [scheme, lib] of [
 for (const [scheme, lib] of [
 	['SLH-DSA-SHAKE-128s', slh_dsa_shake_128s],
 	['SLH-DSA-SHAKE-128f', slh_dsa_shake_128f],
+	['SLH-DSA-SHA2-128s', slh_dsa_sha2_128s],
+	['SLH-DSA-SHA2-128f', slh_dsa_sha2_128f],
 ] as const) {
 	rows.push(benchPqScheme(scheme, lib, slowIters(scheme)));
 }

@@ -23,7 +23,8 @@ export interface SuiAssurance {
 	tip: string;
 }
 
-// Both measured SLH-DSA variants share one assurance story.
+// All four measured SLH-DSA variants (SHAKE/SHA2 × 128s/128f) share one
+// assurance story — FIPS 205 covers both hash choices identically.
 const SLH_DSA: SuiAssurance = {
 	badge: 'ACVP-gated',
 	unaudited: true,
@@ -65,6 +66,8 @@ export const SUI_ASSURANCE: Record<string, SuiAssurance> = {
 	'ML-DSA-87': ML_DSA,
 	'SLH-DSA-SHAKE-128s': SLH_DSA,
 	'SLH-DSA-SHAKE-128f': SLH_DSA,
+	'SLH-DSA-SHA2-128s': SLH_DSA,
+	'SLH-DSA-SHA2-128f': SLH_DSA,
 };
 
 export function suiAssuranceFor(name: string): SuiAssurance | undefined {

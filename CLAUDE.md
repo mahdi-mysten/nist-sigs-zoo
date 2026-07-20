@@ -157,25 +157,29 @@ The Sui lens's Keygen/Sign columns are a **separate measurement** from the Rust
 verify numbers above: validators run Rust, but signing happens client-side in
 wallets (browser extensions, mobile apps), which are typically JS/TS — this
 benches that stack instead, through the libraries a Sui wallet would actually
-use. `scripts/ts-bench.ts` benches all 8 `DISPLAY_SCHEMES`: Ed25519 via
+use. `scripts/ts-bench.ts` benches all 10 `DISPLAY_SCHEMES`: Ed25519 via
 [`@mysten/sui`](https://www.npmjs.com/package/@mysten/sui)
 (`Ed25519Keypair.generate()` / `.sign()`, async), the PQ schemes via
 [`@noble/post-quantum`](https://github.com/paulmillr/noble-post-quantum)
-(`ml_dsa44/65/87`, `slh_dsa_shake_128s/128f`, `falcon512padded`/`falcon1024padded`
-— the **padded** Falcon variant, matching the fixed-size wire format
-`mac-m2-max.csv` already uses). Both libraries are devDependencies of this repo
-(not the SvelteKit app's runtime deps — only the script imports them).
+(`ml_dsa44/65/87`, `slh_dsa_shake_128s/128f`, `slh_dsa_sha2_128s/128f`,
+`falcon512padded`/`falcon1024padded` — the **padded** Falcon variant, matching
+the fixed-size wire format `mac-m2-max.csv` already uses). Both libraries are
+devDependencies of this repo (not the SvelteKit app's runtime deps — only the
+script imports them).
 
 Method mirrors pq-sig-bench: warmup 2, median of N iterations, a fresh random
 key every keygen call and a fresh random message under one fixed key every sign
 call (ML-DSA and Falcon both use rejection sampling, so a fixed input would
 understate their real variance — same reasoning pq-sig-bench documents for its
 own sign benchmark). N is 1000 for schemes cheap enough to finish quickly, 100
-for the rest, and 30 specifically for SLH-DSA-SHAKE-128s (`SLOW_ITER_CAPS` in
-the script) — its sign is ~7.5 s/op in pure JS (no hardware SHA/SHAKE
-acceleration), so even 100 iterations would take ~12.5 minutes for that one
-scheme alone. The exact N used is written per row (`keygen_iters`/`sign_iters`),
-never assumed — the lens shows it in each cell's tooltip.
+for the rest, and lower still for the two slowest hash-based schemes
+(`SLOW_ITER_CAPS` in the script): 30 for SLH-DSA-SHAKE-128s (~7.5 s/op in pure
+JS — no hardware SHA/SHAKE acceleration — so even 100 iterations would take
+~12.5 minutes for that scheme alone) and 50 for SLH-DSA-SHA2-128s (~2.2 s/op —
+faster than SHAKE, but still slow enough that 100 would push the full run
+uncomfortably long). The exact N used is written per row
+(`keygen_iters`/`sign_iters`), never assumed — the lens shows it in each cell's
+tooltip.
 
 Before timing anything, each scheme's pk/sig byte lengths are checked against
 the values already established in `mac-m2-max.csv` (`EXPECTED_SIZES` in the
@@ -183,7 +187,7 @@ script) — this is what catches a wrong parameter set or wire variant (e.g.
 non-padded Falcon) before its timing gets trusted, mirroring pq-sig-bench's own
 self-check-before-timing gate. `checkSizes()` throws its own descriptive error
 if a scheme has no `EXPECTED_SIZES` entry at all (rather than a bare
-`TypeError`) — a guard for whoever adds a 9th scheme later.
+`TypeError`) — a guard for whoever adds an 11th scheme later.
 
 The script also computes `keygen_vs_ed25519`/`sign_vs_ed25519` itself — each
 scheme's keygen/sign time divided by this same run's own Ed25519 row — exactly
@@ -301,8 +305,9 @@ that column's own CSV (Keygen/Sign from `ts-bench.csv`'s
 the only one computed client-side rather than by a harness: byte lengths are
 static, not a noisy measurement, so there's nothing for a harness to own.
 - Rows are pinned by `DISPLAY_SCHEMES` (Ed25519, FN-DSA-512, FN-DSA-1024,
-  ML-DSA-44, ML-DSA-65, ML-DSA-87, SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f). The
-  CSV still carries the SLH-DSA SHA2 variants; they're just not in this view.
+  ML-DSA-44, ML-DSA-65, ML-DSA-87, SLH-DSA-SHAKE-128s, SLH-DSA-SHAKE-128f,
+  SLH-DSA-SHA2-128s, SLH-DSA-SHA2-128f) — all four SLH-DSA hash-variant/speed
+  combinations at level 1.
 - Measured rows come from `data/mysten/mac-m2-max.csv`, one row per scheme via
   `aggregateByScheme()`. No host toggle — the lens reports Mac M2 Max only.
 - FN-DSA-512 and all three ML-DSA levels are each a single measured
