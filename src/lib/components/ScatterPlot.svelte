@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SUI_PICK } from '$lib/constants';
 	import { getFilterStore } from '$lib/filterStore';
 	import { themeStore } from '$lib/themeStore';
 	import type { AxisField, NistLevel, ParameterSet, ScaleType } from '$lib/types';
@@ -103,6 +104,7 @@
 				shapeKey: shapeKey(d),
 				level: levelLabel(d.level),
 				security: securityStatus(d),
+				isPick: d.scheme === SUI_PICK.scheme && d.parameterset === SUI_PICK.parameterset,
 				tooltip
 			};
 		});
@@ -124,6 +126,10 @@
 		);
 		const categoryDomain = presentShapeKeys;
 		const categoryShapeRange = presentShapeKeys.map((k) => CATEGORY_SHAPES[k]);
+
+		// Apricot — the brand accent, and the same colour the lens uses to mark the
+		// picked row, so the two views read as one annotation.
+		const pickColor = isDark ? '#f0ab55' : '#E09434';
 
 		const isMobile = window.innerWidth < 640;
 		const mobileLegend = isMobile
@@ -197,6 +203,30 @@
 					mark: { type: 'point', filled: false, shape: 'circle', size: 120, strokeWidth: 2 },
 					encoding: {
 						color: { value: isDark ? '#FDE68A' : '#B45309' }
+					}
+				},
+				// Sui's pick — drawn last so the halo and label sit above every other
+				// mark. Filtering (rather than hiding) means the annotation simply
+				// disappears if the user filters the pick out of the view.
+				{
+					transform: [{ filter: 'datum.isPick' }],
+					mark: { type: 'point', filled: false, shape: 'circle', size: 420, strokeWidth: 2.5 },
+					encoding: { color: { value: pickColor } }
+				},
+				{
+					transform: [{ filter: 'datum.isPick' }],
+					mark: {
+						type: 'text',
+						align: 'left',
+						baseline: 'middle',
+						dx: 18,
+						dy: -14,
+						fontSize: 11,
+						fontWeight: 'bold'
+					},
+					encoding: {
+						text: { value: `${SUI_PICK.badge} · ${SUI_PICK.parameterset}` },
+						color: { value: pickColor }
 					}
 				}
 			],

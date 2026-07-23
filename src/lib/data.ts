@@ -150,23 +150,31 @@ export function parseParameterSets(
 	return { rows, ranges };
 }
 
-// Sui lens curation: the PQ-authenticator decision is made at each scheme's floor
-// security level — the sets a chain would deploy first — so higher levels only add
-// spread without changing the ranking. Flip to false to restore full parameter lists.
-export const LOWEST_LEVEL_ONLY = true;
+// The zoo (scatter + table below the Sui lens) is the *exploration* view, so it
+// shows every parameter set the YAML carries for a scheme — all of ML-DSA-44/65/87,
+// both SLH-DSA speed variants at every level, and so on. (The zoo's SLH-DSA data is
+// SHAKE-only; the SHA2 rows come from our own bench CSVs and appear in the Sui lens,
+// not here.) The curated "which one would Sui deploy" answer lives in that lens
+// hero instead, which pins its own DISPLAY_SCHEMES and is unaffected by these
+// constants.
+// Flip to true to collapse each scheme back to its floor security level.
+export const LOWEST_LEVEL_ONLY = false;
 
-// Level cap, stacked on top of LOWEST_LEVEL_ONLY: the Sui authenticator would
-// deploy at NIST level 1 or 2, so higher-level sets are out of scope — and a
-// scheme whose *floor* is level 3+ disappears entirely (intended). Raise this
-// to widen the zoo again. Pre-Quantum baselines (EdDSA/ECDSA) always pass.
-export const MAX_NIST_LEVEL = 2;
+// Level cap, stacked on top of LOWEST_LEVEL_ONLY. 5 = the full NIST category
+// range, i.e. no cap in practice. Lower it (e.g. to 2) to re-narrow the zoo to
+// the levels a chain would realistically deploy — a scheme whose *floor* is
+// above the cap then disappears entirely. Pre-Quantum baselines always pass.
+export const MAX_NIST_LEVEL = 5;
 
 export function withinLevelCap(level: NistLevel | number): boolean {
 	return level === 'Pre-Quantum' || (typeof level === 'number' && level <= MAX_NIST_LEVEL);
 }
 
-// The only levels the curated data can contain — drives the filter checkboxes
-// and the default filter state, so widening MAX_NIST_LEVEL updates those too.
+// The levels the curated data is *allowed* to contain. Defines the default filter
+// state (everything selected) and what a `?l=` URL may select, so widening
+// MAX_NIST_LEVEL widens both. Note this is a superset of what's rendered:
+// FilterPanel narrows it to levels some row actually has, so a category with no
+// data (currently 4) never becomes a checkbox that can't change anything.
 export const SELECTABLE_LEVELS: NistLevel[] = (
 	['Pre-Quantum', 1, 2, 3, 4, 5] as NistLevel[]
 ).filter(withinLevelCap);

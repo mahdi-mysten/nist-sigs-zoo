@@ -6,10 +6,12 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 **Mysten PQ Signatures Zoo** — a Mysten Labs fork of the PQShield NIST Signatures Zoo,
 narrowed to the schemes relevant to Sui's PQ-authenticator decision. Signatures only
-(the upstream KEM comparison is removed), each scheme shown at its lowest NIST security
-level and only at levels 1–2, plus a "Sui on-chain lens" hero backed by our own
-measured benchmarks. The upstream round selector is removed; the dataset is pinned to
-the round-3 survivors at their latest specs.
+(the upstream KEM comparison is removed), plus a "Sui on-chain lens" hero backed by our
+own measured benchmarks. The page is two views: the **lens** is the curated decision
+table (a pinned scheme list, our own Rust + TypeScript measurements), and the **zoo**
+below it — scatter + sortable table + filters — is the exploration view showing every
+parameter set at every NIST level. The upstream round selector is removed; the dataset
+is pinned to the round-3 survivors at their latest specs.
 Built with SvelteKit (adapter-static) + Tailwind CSS v4 + TypeScript.
 Deploy: `npm run build` → `dist/`.
 
@@ -41,7 +43,7 @@ npm run test:e2e      # E2E tests (Playwright, builds site first)
 
 Vitest with node environment. Tests pure TypeScript functions only — no Svelte components, no browser.
 
-- `data.test.ts` — `processYamlSchemes()`: tag filtering, version selection, field computation, flag propagation, lowest-level curation
+- `data.test.ts` — `processYamlSchemes()`: tag filtering, version selection, field computation, flag propagation, parameter-set curation, `withinLevelCap`
 - `mystenBench.test.ts` — `parseMystenBenchCsv()` / `aggregateByScheme()`: pq-sig-bench CSV parsing, pending state, per-scheme averaging across implementations
 - `filterStore.test.ts` — `buildUrlParams()`: URL encoding of filter state
 
@@ -72,12 +74,17 @@ Only these schemes are kept; do not re-add others without a decision:
 - NIST on-ramp Round 3 survivors (NIST IR 8610): HAWK, SQIsign, FAEST, MQOM, SDitH, UOV, MAYO, QR-UOV, SNOVA
 - Classical baselines: EdDSA, ECDSA
 
-The data layer additionally keeps only each scheme's **lowest** NIST-level parameter
-sets (all variants at that level survive). This is `LOWEST_LEVEL_ONLY` +
-`lowestLevelSets()` in `src/lib/data.ts`; flip the const to restore full lists.
-Stacked on top, `MAX_NIST_LEVEL = 2` drops every set above level 2 (Pre-Quantum
-baselines always pass) — a scheme whose floor is level 3+ disappears entirely.
-Raise the const to widen; the filter checkboxes follow via `SELECTABLE_LEVELS`.
+Within those schemes the zoo shows **every parameter set at every NIST level** —
+ML-DSA-44/65/87, SLH-DSA across 128/192/256, and so on (~113 rows). Two constants in
+`src/lib/data.ts` can re-narrow it: `LOWEST_LEVEL_ONLY` (currently `false`; set true to
+collapse each scheme to its floor level via `lowestLevelSets()`) and `MAX_NIST_LEVEL`
+(currently `5`, i.e. no cap; lower it to drop higher levels — a scheme whose floor is
+above the cap then disappears entirely, Pre-Quantum baselines always pass).
+`SELECTABLE_LEVELS` follows `MAX_NIST_LEVEL` and defines the default filter state; the
+filter *checkboxes* are narrower still — `FilterPanel` renders only levels some row
+actually has, so no dead control appears for NIST category 4, which no curated scheme
+targets. The Sui lens hero is independent of all this (it pins its own
+`DISPLAY_SCHEMES`).
 
 Schema per file:
 ```yaml
@@ -230,7 +237,7 @@ data/
 src/
 ├── lib/
 │   ├── types.ts          # Scheme, ParameterSet, SchemeYaml, VersionYaml, FilterState types
-│   ├── constants.ts      # CPUSPEED, NIST_LEVELS, PENDING_FIPS
+│   ├── constants.ts      # CPUSPEED, NIST_LEVELS, PENDING_FIPS, SUI_PICK
 │   ├── data.ts           # processYamlSchemes() + LOWEST_LEVEL_ONLY + MAX_NIST_LEVEL curation
 │   ├── format.ts         # shared cell formatters (fmt, fmtCycles, fmtTime)
 │   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
@@ -249,6 +256,7 @@ src/
 │       ├── RangeField.svelte     # reusable number input
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
+│       ├── SignVsSigPlot.svelte  # Vega-Lite sign-time vs sig-size scatter (measured schemes only)
 │       └── SuiLens.svelte        # Sui on-chain lens: 7-column measured table (Scheme·Std·pk+sig·Keygen·Sign·Verify·Assurance)
 └── routes/
     ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
@@ -282,8 +290,55 @@ tests/
 - With `tagFilter` (e.g. `'round-2'`): picks the latest version whose `tags` includes that value.
 - Fallback: schemes with no tags on any version are always included (reference schemes like ML-DSA).
 - Schemes that have tags but none matching `tagFilter` are excluded.
-- After version selection, `lowestLevelSets()` drops every parameter set above the
-  scheme's lowest NIST level (when `LOWEST_LEVEL_ONLY` is true).
+- After version selection, every parameter set within `MAX_NIST_LEVEL` survives.
+  (`lowestLevelSets()` would drop all but the scheme's floor level, but
+  `LOWEST_LEVEL_ONLY` is currently `false` — see the curation-rules section.)
+
+### The pick (ML-DSA-65)
+
+`SUI_PICK` in `src/lib/constants.ts` names the parameter set Sui is going with, so
+the decision is stated in the UI rather than only in a doc. It's referenced from
+three independent render paths, all keyed slightly differently — keep them in sync:
+- **Sui lens** (`SuiLens.svelte`) — matches `SUI_PICK.parameterset` against the
+  measured/harness row name; renders an apricot row tint, a left border and an
+  "Our pick" badge on that row.
+- **Zoo scatter** (`ScatterPlot.svelte`) — matches on `(scheme, parameterset)`
+  against the YAML row, since the zoo keys rows differently from the lens. Adds an
+  `isPick` field, then two final layers (drawn last so they sit on top): an apricot
+  halo ring and a text label. Both are `filter`-based, so the annotation disappears
+  cleanly if the user filters the pick out rather than floating over nothing.
+- **Sign-vs-sig chart** (`SignVsSigPlot.svelte`) — apricot halo plus a bold apricot
+  label (see that section's note on why the bold has to be a mark property).
+
+All three use the same apricot accent so they read as one annotation. Changing the
+pick means editing `SUI_PICK` and the e2e assertions in `main.spec.ts`.
+
+### Sign-time vs. pk+sig chart
+
+`SignVsSigPlot.svelte`, above the zoo scatter on the main page. Both axes log:
+x is the **browser** Sign time from `ts-bench.csv`, y is total on-chain footprint
+(`pk + sig`) — the same wallet-cost/chain-cost pair the lens table puts side by
+side, with bottom-left being best. Note y is **not** the zoo scatter's sig-only
+axis. Deliberately a different dataset from that scatter too: Sign (browser) only
+exists for the 10 `DISPLAY_SCHEMES` we benched, not for the ~113 YAML parameter
+sets, so **this chart is not driven by the sidebar filters** (the caption says so).
+Sizes come from `mac-m2-max.csv`, timings from `ts-bench.csv`, joined by scheme name.
+
+Two gotchas worth knowing before editing it:
+- **`align`, `dx`, `dy` and `fontWeight` are Vega-Lite mark properties, not
+  encoding channels.** Passing them under `encoding` is silently dropped (it only
+  warns to the console, and every label renders identically — which is how the
+  pick's bold label was silently a no-op at first). Per-point label styling is
+  therefore built as *one layer per distinct style*, each with a
+  `filter: {field: 'scheme', oneOf: [...]}` and static mark props.
+- Labels are the variant only (`ML-65`, `SHAKE-128s`) since colour+legend already
+  give the family; full names are ~2× wider and collide. `labelSlot` then nudges
+  one label up and one down for points with **byte-identical** signatures (SHAKE
+  vs SHA2 — 7,856 and 17,088), which would otherwise print on top of each other.
+  Only exact ties are nudged: an earlier version also spread merely-*close* points,
+  which pushed labels on opposite sides of the closeness threshold **toward** each
+  other and made ML-87/SHA2-128s collide on phones. Narrow viewports additionally
+  get a bottom legend and a smaller label font, mirroring `ScatterPlot`.
 
 ### Sui On-Chain Lens
 

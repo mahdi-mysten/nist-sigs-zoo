@@ -11,7 +11,18 @@
 	}
 	let { schemes, categories, ranges }: Props = $props();
 
-	const { store, defaults } = getFilterStore();
+	const { store, defaults, allRows } = getFilterStore();
+
+	// Only offer levels some row actually has: SELECTABLE_LEVELS spans the whole
+	// NIST category range the cap allows (1–5), but no curated scheme targets
+	// category 4, so rendering that checkbox would give a control that can never
+	// change the result. Order follows SELECTABLE_LEVELS; falls back to the full
+	// list if rows haven't loaded yet.
+	const presentLevels = $derived(
+		$allRows.length === 0
+			? SELECTABLE_LEVELS
+			: SELECTABLE_LEVELS.filter((lvl) => $allRows.some((r) => r.level === lvl))
+	);
 
 	const schemesByCategory = $derived(
 		Object.fromEntries(
@@ -143,10 +154,11 @@
 			Security level
 		</h3>
 		<p class="mb-2 text-[11px] leading-snug text-pqs-steel/60 dark:text-pqs-bluegray/60">
-			NIST levels 1 and 2 only — the sets a chain would deploy. N/A marks the pre-quantum baselines.
+			Higher is more conservative; a chain would realistically deploy at level 1 or 2. N/A marks the
+			pre-quantum baselines.
 		</p>
 		<div class="space-y-0.5">
-			{#each SELECTABLE_LEVELS as level}
+			{#each presentLevels as level}
 				<label class="flex cursor-pointer items-center gap-1.5">
 					<input
 						type="checkbox"

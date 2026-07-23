@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { SELECTABLE_LEVELS } from '$lib/data';
 import { buildUrlParams } from '$lib/filterStore';
 import type { FilterState, DataRanges } from '$lib/types';
 
 function makeDefaults(): FilterState {
 	return {
 		schemes: new Set(['SchemeA', 'SchemeB']),
-		// Mirrors SELECTABLE_LEVELS (level cap = 2; see data.ts)
-		levels: new Set(['Pre-Quantum', 1, 2] as const),
+		// Taken from the real SELECTABLE_LEVELS rather than a hand-copied list, so
+		// changing the level cap in data.ts can't silently leave this fixture stale.
+		levels: new Set(SELECTABLE_LEVELS),
 		minPk: 100, maxPk: 50000,
 		minSig: 200, maxSig: 80000,
 		minPkPlusSig: 300, maxPkPlusSig: 130000,

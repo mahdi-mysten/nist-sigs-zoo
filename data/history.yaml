@@ -1,4 +1,17 @@
 - date: '2026-07-14'
+  type: milestone
+  description: "<strong>Picked ML-DSA-65</strong> as Sui's PQ authenticator: FIPS 204, NIST level 3, 24.3 µs verify (0.9× Ed25519) at 5,261 B on-chain. Chosen over FN-DSA-512's smaller footprint because ML-DSA has no floating-point signing hazard and the strongest assurance story of the FIPS-track options (machine-checked proofs via mldsa-native). fastcrypto components are being built for it. The pick is highlighted everywhere it appears — the Sui lens table, the zoo scatter, and the new sign-time chart."
+  schemes: [ML-DSA]
+
+- date: '2026-07-14'
+  type: update
+  description: "Added a <strong>sign time vs. pk+sig size</strong> chart above the zoo scatter: browser-side signing cost (from <code>scripts/ts-bench.ts</code>) against total on-chain footprint, log–log, for the 10 schemes we measured ourselves — the same wallet-cost/chain-cost pair the Sui lens table puts side by side. Bottom-left is best. Unlike the zoo scatter below it, this one isn't driven by the sidebar filters — browser sign times only exist for the measured candidates, not for every YAML parameter set."
+
+- date: '2026-07-14'
+  type: update
+  description: "Widened the zoo (scatter + table below the Sui lens) to show every parameter set at every NIST level — previously each scheme was collapsed to its floor level and anything above level 2 was dropped, so ML-DSA showed only ML-DSA-44 and SLH-DSA only its 128-bit sets. Now ~113 rows: ML-DSA-44/65/87, SLH-DSA across 128/192/256, Falcon-512 and -1024, and the on-ramp candidates at all their levels. The Sui lens hero is unchanged — it stays the curated decision table. Level checkboxes are now data-driven, so no empty \"Level 4\" control appears (no curated scheme targets NIST category 4)."
+
+- date: '2026-07-14'
   type: update
   description: "Expanded the Sui lens's SLH-DSA rows from 2 to all 4 level-1 hash-variant/speed combinations — added SLH-DSA-SHA2-128s and SLH-DSA-SHA2-128f alongside the existing SHAKE-128s/128f, in both the Rust verify data and the new TypeScript keygen/sign benchmark (<code>scripts/ts-bench.ts</code>, via <a href=\"https://github.com/paulmillr/noble-post-quantum\">@noble/post-quantum</a>'s <code>slh_dsa_sha2_128s/128f</code>). SHA2-128s signs faster than SHAKE-128s in pure JS (~2.2s/op vs ~7.5s/op) but still slow enough to get its own reduced iteration count (50, vs SHAKE-128s's 30)."
   schemes: [SLH-DSA]

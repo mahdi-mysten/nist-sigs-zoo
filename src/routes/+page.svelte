@@ -5,6 +5,7 @@
 	import { base } from '$app/paths';
 	import BenchmarkEnvInfo from '$lib/components/BenchmarkEnvInfo.svelte';
 	import FilterPanel from '$lib/components/FilterPanel.svelte';
+	import SignVsSigPlot from '$lib/components/SignVsSigPlot.svelte';
 	import SchemeTable from '$lib/components/SchemeTable.svelte';
 	import ScatterPlot from '$lib/components/ScatterPlot.svelte';
 	import SuiLens from '$lib/components/SuiLens.svelte';
@@ -52,8 +53,8 @@
 		</h1>
 		<p class="mt-2 text-sm text-pqs-steel dark:text-pqs-bluegray">
 			Comparing NIST on-ramp candidates and standardized schemes, curated for Sui's PQ-authenticator
-			decision: each scheme is shown at its lowest NIST security level, and only levels 1 and 2 are listed.
-			Click column headers to sort. Use the filters to narrow down by category, security level, or size constraints.
+			decision: every parameter set is listed, at every NIST security level. Click column headers to
+			sort. Use the filters to narrow down by category, security level, or size constraints.
 		</p>
 		<p class="mt-1.5 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 			Data reflects the latest known specifications for each scheme, last updated {lastUpdated}.
@@ -85,6 +86,14 @@
 					<FilterPanel schemes={schemes} categories={categories} ranges={ranges} />
 				</div>
 			</details>
+
+			<!-- Wallet cost vs on-chain cost, for the schemes we measured ourselves -->
+			<section class="rounded border border-pqs-ashgray bg-white p-4 shadow-sm dark:border-pqs-steel dark:bg-pqs-midnight-mid">
+				<h2 class="mb-3 font-heading text-base font-semibold text-pqs-steel dark:text-pqs-apricot">
+					Sign time vs. pk+sig size <span class="font-normal text-pqs-bluegray">(log–log scale)</span>
+				</h2>
+				<SignVsSigPlot />
+			</section>
 
 			<!-- Scatter plot -->
 			<section class="rounded border border-pqs-ashgray bg-white p-4 shadow-sm dark:border-pqs-steel dark:bg-pqs-midnight-mid">

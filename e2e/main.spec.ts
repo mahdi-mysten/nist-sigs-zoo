@@ -17,6 +17,34 @@ test.describe('Main page', () => {
 		await expect(vegaSvg).toBeVisible();
 	});
 
+	test('sign-time vs pk+sig chart renders, labelled, with the pick marked', async ({ page }) => {
+		await page.goto('/');
+		const section = page.locator('section', { hasText: 'Sign time vs. pk+sig size' }).first();
+		await expect(section.locator('h2')).toContainText('Sign time vs. pk+sig size');
+		// Wait for the dynamic vega-embed import to draw
+		await page.waitForFunction(
+			() =>
+				[...document.querySelectorAll('svg text')].some((t) => t.textContent?.trim() === 'ML-65'),
+			{ timeout: 15_000 }
+		);
+		// All 10 measured schemes are labelled. ("Ed25519" matches twice — the point
+		// label and the family legend entry share the name — so assert presence, not count.)
+		for (const label of ['Ed25519', 'FN-512', 'FN-1024', 'ML-44', 'ML-65', 'ML-87',
+			'SHAKE-128s', 'SHAKE-128f', 'SHA2-128s', 'SHA2-128f']) {
+			await expect(section.locator(`svg text:text-is("${label}")`).first()).toBeVisible();
+		}
+		// ...and the pick is bold, which only works because align/dx/dy/fontWeight are
+		// applied as mark properties — Vega-Lite silently drops them as encodings.
+		const weight = await section
+			.locator('svg text:text-is("ML-65")')
+			.evaluate((el) => getComputedStyle(el).fontWeight);
+		expect(Number(weight)).toBeGreaterThanOrEqual(700);
+		// Axes: browser sign time against total on-chain footprint (pk+sig), which is
+		// the lens's own cost pair — not the sig-only y of the zoo scatter below.
+		await expect(section.locator('svg text:text-is("Sign — browser (ms)")')).toHaveCount(1);
+		await expect(section.locator('svg text:text-is("pk + sig (bytes)")')).toHaveCount(1);
+	});
+
 	test('scatter plot section heading', async ({ page }) => {
 		await page.goto('/');
 		// Not .first(): the Sui lens h2 precedes the zoo scatter heading
@@ -52,13 +80,20 @@ test.describe('Main page', () => {
 		}
 	});
 
-	test('level filter offers only 1, 2 and N/A', async ({ page }) => {
+	test('level filter offers the full NIST category range', async ({ page }) => {
 		await page.goto('/');
 		const panel = page.locator('aside').first();
-		await expect(panel.getByText('Level 1', { exact: true })).toBeVisible();
-		await expect(panel.getByText('Level 2', { exact: true })).toBeVisible();
+		// The zoo is the exploration view — every level is selectable, so the
+		// higher-level sets (ML-DSA-65/87, SLH-DSA-192/256, …) can be filtered.
+		for (const label of ['Level 1', 'Level 2', 'Level 3', 'Level 5']) {
+			await expect(panel.getByText(label, { exact: true })).toBeVisible();
+		}
 		await expect(panel.getByText('N/A (pre-quantum)', { exact: true })).toBeVisible();
-		await expect(panel.getByText('Level 3', { exact: true })).toHaveCount(0);
+		// …but only levels some row actually has. No curated scheme targets NIST
+		// category 4, so FilterPanel's presentLevels must drop it rather than render
+		// a checkbox that can never change the result. If a level-4 scheme is ever
+		// added, this is the assertion to update — it failing means the data grew.
+		await expect(panel.getByText('Level 4', { exact: true })).toHaveCount(0);
 	});
 
 	test('numeric cells carry traffic-light shading', async ({ page }) => {
@@ -136,6 +171,26 @@ test.describe('Sui on-chain lens', () => {
 		await expect(shakeRow.locator('[title*="median of 30 iterations"]')).toHaveCount(2);
 		const sha2Row = lens.locator('tr', { hasText: 'SLH-DSA-SHA2-128s' });
 		await expect(sha2Row.locator('[title*="median of 50 iterations"]')).toHaveCount(2);
+	});
+
+	test('ML-DSA-65 is marked as the pick, in the table and the chart', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+
+		// Badged on its row, and only there — exactly one scheme is the pick.
+		const badges = lens.getByText('Our pick', { exact: true });
+		await expect(badges).toHaveCount(1);
+		const pickRow = lens.locator('tr', { hasText: 'ML-DSA-65' });
+		await expect(pickRow.getByText('Our pick', { exact: true })).toBeVisible();
+
+		// ...and annotated in the zoo scatter, which is a separate data path.
+		await page.waitForFunction(
+			() =>
+				[...document.querySelectorAll('svg text')].some((t) =>
+					t.textContent?.includes('Our pick · ML-DSA-65')
+				),
+			{ timeout: 15_000 }
+		);
 	});
 
 	test('ML-DSA is shown at all three benched security levels', async ({ page }) => {

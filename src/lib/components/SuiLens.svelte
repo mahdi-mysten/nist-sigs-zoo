@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PENDING_FIPS } from '$lib/constants';
+	import { DISPLAY_SCHEMES, PENDING_FIPS, SUI_PICK } from '$lib/constants';
 	import { fipsChipLabel, fmt, fmtTime } from '$lib/format';
 	import { processYamlSchemes } from '$lib/data';
 	import { allSchemeData } from '$lib/schemeData';
@@ -11,28 +11,14 @@
 	import type { Scheme } from '$lib/types';
 	import SecurityBadge from './SecurityBadge.svelte';
 
-	// The measured schemes shown, in table order.
-	const DISPLAY_SCHEMES = [
-		'Ed25519',
-		'FN-DSA-512',
-		'FN-DSA-1024',
-		'ML-DSA-44',
-		'ML-DSA-65',
-		'ML-DSA-87',
-		'SLH-DSA-SHAKE-128s',
-		'SLH-DSA-SHAKE-128f',
-		'SLH-DSA-SHA2-128s',
-		'SLH-DSA-SHA2-128f',
-	];
-
-	// pq-sig-bench benches one implementation per row — the one Sui would actually
+	// pq-sig-bench benches one implementation per row: the one Sui would actually
 	// run. aggregateByScheme() collapses to one row per scheme, which is a no-op
 	// today but keeps this forward-compatible if a scheme is ever multi-impl again
 	// (ML-DSA used to be, see the harness README's background section).
 	const aggs = aggregateByScheme(mystenBench);
 	const mystenByScheme = new Map(aggs.map((a) => [a.scheme, a]));
 
-	// pk+sig ratio baseline — same Ed25519-row-of-this-CSV rule as the timing
+	// pk+sig ratio baseline: same Ed25519-row-of-this-CSV rule as the timing
 	// ratios, just computed here since mac-m2-max.csv has no vs_ed25519 column
 	// for sizes (they're static byte lengths, not a noisy measurement, so
 	// there's nothing for the harness itself to compute and own).
@@ -42,11 +28,11 @@
 	})();
 
 	// Keygen/Sign are a separate measurement (scripts/ts-bench.ts, TypeScript via
-	// @mysten/sui / @noble/post-quantum — the libraries a Sui wallet would use) —
+	// @mysten/sui / @noble/post-quantum: the libraries a Sui wallet would use):
 	// joined onto the Rust-measured rows by scheme name.
 	const tsByScheme = new Map(tsBench.map((r) => [r.scheme, r]));
 
-	// A scheme renders as long as EITHER source has it — Verify degrades to "—" if
+	// A scheme renders as long as EITHER source has it: Verify degrades to "—" if
 	// missing from mac-m2-max.csv, Keygen/Sign degrade to "—" if missing from
 	// ts-bench.csv, symmetrically. Only a scheme absent from both (impossible
 	// today, but not enforced by types) drops out entirely.
@@ -120,10 +106,10 @@
 	</td>
 {/snippet}
 
-<!-- "(X.X×)" suffix vs the Ed25519 baseline, shared by pk+sig/Keygen/Sign/Verify —
+<!-- "(X.X×)" suffix vs the Ed25519 baseline, shared by pk+sig/Keygen/Sign/Verify:
      each column's ratio is intra-run against its own CSV's own Ed25519 row
      (ts-bench.csv for Keygen/Sign, mac-m2-max.csv for pk+sig/Verify), never
-     cross-CSV. text-pqs-steel/dark:text-pqs-bluegray (not the reverse — that
+     cross-CSV. text-pqs-steel/dark:text-pqs-bluegray (not the reverse: that
      pairing is unreadably low-contrast in both themes) plus font-medium keeps
      it legible as real data, not a faint aside. -->
 {#snippet ratioSuffix(r: number | null | undefined)}
@@ -158,12 +144,12 @@
 			Sui on-chain lens
 		</h2>
 		<p class="mt-1 text-xs text-pqs-steel dark:text-pqs-bluegray">
-			The FIPS-track signature candidates. Keygen and Sign run in the browser — a wallet operation,
-			measured in TypeScript through the libraries a Sui wallet would actually use. Verify runs on
-			the validator server — measured through fastcrypto, the stack a Sui validator would run. Each
-			cell also shows its cost as a ratio against Ed25519.
+			The FIPS-track candidates, measured on one machine. Keygen and Sign are wallet-side (browser,
+			TypeScript); Verify is validator-side (server, Rust). Each cell shows its cost against Ed25519.
 		</p>
 	</div>
+
+	
 
 	<div class="mt-4 overflow-x-auto rounded border border-pqs-ashgray dark:border-pqs-steel">
 		<table class="min-w-full text-sm">
@@ -185,9 +171,14 @@
 					{@const avgOver = mysten?.impls.length ?? 0}
 					{@const ts = row.ts}
 					{@const pkSigRatio = mysten && ed25519PkPlusSig ? (mysten.pkLen + mysten.sigLen) / ed25519PkPlusSig : null}
-					<tr class="hover:bg-pqs-smoke dark:hover:bg-pqs-steel/30">
+					{@const isPick = row.scheme === SUI_PICK.parameterset}
+					<tr
+						class={isPick
+							? 'bg-pqs-apricot/10 dark:bg-pqs-apricot/10'
+							: 'hover:bg-pqs-smoke dark:hover:bg-pqs-steel/30'}
+					>
 						<!-- Scheme (the measured name is the parameter set) -->
-						<td class="whitespace-nowrap px-3 py-1.5" title={zooScheme?.assumption}>
+						<td class="whitespace-nowrap px-3 py-1.5 {isPick ? 'border-l-4 border-pqs-apricot' : ''}" title={zooScheme?.assumption}>
 							{#if zooScheme}
 								<a
 									href={zooScheme.website}
@@ -205,6 +196,12 @@
 								/>
 							{:else}
 								<span class="font-heading font-semibold text-pqs-steel dark:text-pqs-apricot">{row.scheme}</span>
+							{/if}
+							{#if isPick}
+								<span
+									class="ml-1.5 rounded bg-pqs-apricot px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-pqs-midnight"
+									title="The parameter set Sui is going with: fastcrypto components are being built for it."
+								>{SUI_PICK.badge}</span>
 							{/if}
 						</td>
 						<!-- Std -->
@@ -245,27 +242,19 @@
 	</div>
 
 	<p class="mt-2 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
-		Verify (server): <a href="https://github.com/mahdi-mysten/pq-sig-bench" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">pq-sig-bench</a>
-		through fastcrypto (<a href="https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">mahdi/fn-dsa-512</a> branch, pre-merge)
-		— the stack a Sui validator would run — median of 1000 verify iterations, {BENCH_MACHINE}. Its ratio
-		is the harness's own intra-run number against this same run's Ed25519 row, never recomputed.
+		<span class="font-semibold">Sources</span>: Verify:
+		<a href="https://github.com/mahdi-mysten/pq-sig-bench" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">pq-sig-bench</a>
+		through fastcrypto (<a href="https://github.com/MystenLabs/fastcrypto/tree/mahdi/fn-dsa-512" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">mahdi/fn-dsa-512</a>, pre-merge).
+		Keygen/Sign: <a href="https://github.com/mahdi-mysten/nist-sigs-zoo/blob/mysten-zoo/scripts/ts-bench.ts" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">ts-bench.ts</a>
+		via <a href="https://www.npmjs.com/package/@mysten/sui" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@mysten/sui</a>
+		and <a href="https://github.com/paulmillr/noble-post-quantum" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@noble/post-quantum</a>.
+		Both {BENCH_MACHINE}; median of 1000 iterations, fewer for the slow schemes — the hash-based ones
+		and both FN-DSA sizes: hover a cell for the exact count. Each benchmark computes its own Ed25519
+		ratios; the two are never mixed.
 	</p>
 	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
-		Keygen/Sign (browser): <a href="https://github.com/mahdi-mysten/nist-sigs-zoo/blob/mysten-zoo/scripts/ts-bench.ts" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">scripts/ts-bench.ts</a>,
-		measured in TypeScript through <a href="https://www.npmjs.com/package/@mysten/sui" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@mysten/sui</a>
-		(Ed25519) and <a href="https://github.com/paulmillr/noble-post-quantum" target="_blank" rel="noopener noreferrer" class="underline hover:text-pqs-apricot">@noble/post-quantum</a>
-		(the PQ schemes) — the libraries a browser or mobile wallet would actually run, a different stack
-		and a different Ed25519 baseline from Verify's. Median of 1000 iterations, except SLH-DSA-SHAKE-128s
-		(30), SLH-DSA-SHA2-128s (50), and every other slow scheme (100) — hover a cell for the exact
-		count; each iteration signs a fresh random message under one key, matching the Rust harness's own
-		methodology.
-	</p>
-	<p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
-		Sui validators batch-verify Ed25519, roughly halving its amortized per-signature cost; no PQ
-		candidate batches, so the practical on-chain gap is about 2× the Verify column's ratio. Each row
-		measures one implementation — the one Sui would actually run — except FN-DSA-1024, which has no
-		fastcrypto implementation yet and is shown via PQClean's portable reference C for scale. Assurance
-		names the implementation behind each row and whether it has an independent audit — hover a pill
-		for the specifics.
+		<span class="font-semibold">Caveats</span>: validators batch-verify Ed25519 (~2× amortized) and no
+		PQ scheme batches, so the real on-chain gap is about 2× the Verify ratio. FN-DSA-1024 has no
+		fastcrypto implementation yet and is shown via PQClean's reference C for scale.
 	</p>
 </section>

@@ -207,6 +207,11 @@ export function getFilterStore() {
 		store,
 		defaults,
 		filteredRows: _filteredRows as Readable<ParameterSet[]>,
+		// Unfiltered rows — lets the filter UI show only controls that can match
+		// something (e.g. no "Level 4" checkbox when no scheme targets category 4),
+		// without narrowing SELECTABLE_LEVELS itself, which still defines the
+		// default filter state and what a URL is allowed to select.
+		allRows: _allRows as Readable<ParameterSet[]>,
 		applyUrl(params: URLSearchParams) {
 			store.set(applyUrlParams(defaults, params));
 		},

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { processYamlSchemes } from '$lib/data';
+import { MAX_NIST_LEVEL, SELECTABLE_LEVELS, processYamlSchemes, withinLevelCap } from '$lib/data';
 import { CPUSPEED } from '$lib/constants';
 import type { SchemeYaml } from '$lib/types';
 
@@ -131,9 +131,11 @@ describe('processYamlSchemes', () => {
 	});
 });
 
-// Fork behaviour (LOWEST_LEVEL_ONLY): only each scheme's floor security level survives.
-describe('lowest-level curation', () => {
-	it('drops parameter sets above the scheme’s lowest level', () => {
+// Fork behaviour (LOWEST_LEVEL_ONLY = false): the zoo is the exploration view, so
+// every published parameter set reaches the scatter + table. The curated
+// "which set would Sui deploy" answer lives in the Sui lens hero instead.
+describe('parameter-set curation', () => {
+	it('keeps every level, not just the scheme’s floor', () => {
 		const data = [scheme({
 			versions: [{
 				version: 'v1', date: '2024-01-01', status: 'On-ramp',
@@ -145,10 +147,10 @@ describe('lowest-level curation', () => {
 			}],
 		})];
 		const { parameterSets } = processYamlSchemes(data);
-		expect(parameterSets.map((p) => p.parameterset)).toEqual(['L1']);
+		expect(parameterSets.map((p) => p.parameterset)).toEqual(['L1', 'L3', 'L5']);
 	});
 
-	it('keeps all variants at the lowest level (e.g. SLH-DSA s/f)', () => {
+	it('keeps every variant at every level (e.g. SLH-DSA s/f across 128/192)', () => {
 		const data = [scheme({
 			versions: [{
 				version: 'v1', date: '2024-01-01', status: 'FIPS',
@@ -160,19 +162,23 @@ describe('lowest-level curation', () => {
 			}],
 		})];
 		const { parameterSets } = processYamlSchemes(data);
-		expect(parameterSets.map((p) => p.parameterset).sort()).toEqual(['128f', '128s']);
+		expect(parameterSets.map((p) => p.parameterset).sort()).toEqual(['128f', '128s', '192s']);
 	});
 
-	it('lowest level is per scheme, not global', () => {
+	it('a scheme whose floor is level 3 still appears', () => {
 		const data = [
-			scheme({ name: 'FloorTwo', versions: [{ version: 'v1', date: '2024-01-01', status: 'FIPS', parametersets: [{ ...BASE_PS, name: '44', level: 2 as const }] }] }),
+			scheme({ name: 'FloorThree', versions: [{ version: 'v1', date: '2024-01-01', status: 'On-ramp', parametersets: [
+				{ ...BASE_PS, name: 'L3', level: 3 as const },
+				{ ...BASE_PS, name: 'L5', level: 5 as const },
+			] }] }),
 			scheme({ name: 'FloorOne', versions: [{ version: 'v1', date: '2024-01-01', status: 'On-ramp', parametersets: [{ ...BASE_PS, name: 'I', level: 1 as const }] }] }),
 		];
-		const { parameterSets } = processYamlSchemes(data);
-		expect(parameterSets.map((p) => p.parameterset).sort()).toEqual(['44', 'I']);
+		const { schemes, parameterSets } = processYamlSchemes(data);
+		expect(schemes.map((s) => s.scheme).sort()).toEqual(['FloorOne', 'FloorThree']);
+		expect(parameterSets.map((p) => p.parameterset).sort()).toEqual(['I', 'L3', 'L5']);
 	});
 
-	it('Pre-Quantum schemes keep all their (single-level) curves', () => {
+	it('Pre-Quantum schemes keep all their curves', () => {
 		const data = [scheme({
 			versions: [{
 				version: 'v1', date: '2024-01-01', status: 'Classic cryptography',
@@ -187,39 +193,27 @@ describe('lowest-level curation', () => {
 	});
 });
 
-// Fork behaviour (MAX_NIST_LEVEL = 2): levels above the cap never reach the UI,
-// and a scheme whose floor is above the cap vanishes entirely.
-describe('level cap', () => {
-	it('a scheme whose lowest level is 3 disappears (schemes and sets)', () => {
-		const data = [
-			scheme({ name: 'FloorThree', versions: [{ version: 'v1', date: '2024-01-01', status: 'On-ramp', parametersets: [
-				{ ...BASE_PS, name: 'L3', level: 3 as const },
-				{ ...BASE_PS, name: 'L5', level: 5 as const },
-			] }] }),
-			scheme({ name: 'FloorOne', versions: [{ version: 'v1', date: '2024-01-01', status: 'On-ramp', parametersets: [{ ...BASE_PS, name: 'I', level: 1 as const }] }] }),
-		];
-		const { schemes, parameterSets } = processYamlSchemes(data);
-		expect(schemes.map((s) => s.scheme)).toEqual(['FloorOne']);
-		expect(parameterSets.map((p) => p.parameterset)).toEqual(['I']);
+// The cap machinery is what re-narrows the zoo if MAX_NIST_LEVEL is lowered
+// again, so test the predicate directly — that keeps the logic covered whatever
+// the constant currently is, rather than only asserting today's value.
+describe('withinLevelCap', () => {
+	it('accepts every NIST category up to the cap', () => {
+		for (let level = 1; level <= MAX_NIST_LEVEL; level++) {
+			expect(withinLevelCap(level)).toBe(true);
+		}
 	});
 
-	it('levels 1 and 2 survive the cap', () => {
-		const data = [
-			scheme({ name: 'FloorTwo', versions: [{ version: 'v1', date: '2024-01-01', status: 'FIPS', parametersets: [{ ...BASE_PS, name: '44', level: 2 as const }] }] }),
-		];
-		const { parameterSets } = processYamlSchemes(data);
-		expect(parameterSets.map((p) => p.parameterset)).toEqual(['44']);
+	it('rejects levels above the cap', () => {
+		expect(withinLevelCap(MAX_NIST_LEVEL + 1)).toBe(false);
 	});
 
-	it('Pre-Quantum baselines always pass the cap', () => {
-		const data = [scheme({
-			name: 'Classic',
-			versions: [{ version: 'v1', date: '2024-01-01', status: 'Classic cryptography', broken: 'classical', parametersets: [
-				{ ...BASE_PS, name: 'Ed25519', level: 'Pre-Quantum' as const },
-			] }],
-		})];
-		const { schemes, parameterSets } = processYamlSchemes(data);
-		expect(schemes).toHaveLength(1);
-		expect(parameterSets[0].level).toBe('Pre-Quantum');
+	it('Pre-Quantum baselines always pass, whatever the cap', () => {
+		expect(withinLevelCap('Pre-Quantum')).toBe(true);
+	});
+
+	it('SELECTABLE_LEVELS exposes exactly the levels that pass the cap', () => {
+		expect(SELECTABLE_LEVELS.every((l) => withinLevelCap(l))).toBe(true);
+		expect(SELECTABLE_LEVELS).toContain('Pre-Quantum');
+		expect(SELECTABLE_LEVELS).toContain(MAX_NIST_LEVEL);
 	});
 });
