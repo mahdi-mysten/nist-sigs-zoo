@@ -257,7 +257,7 @@ src/
 │       ├── SchemeTable.svelte    # sortable table (one row per parameter set)
 │       ├── ScatterPlot.svelte    # Vega-Lite scatter plot; accepts xField/yField/xScale/yScale props
 │       ├── SignVsSigPlot.svelte  # Vega-Lite sign-time vs sig-size scatter (measured schemes only)
-│       └── SuiLens.svelte        # Sui on-chain lens: 7-column measured table (Scheme·Std·pk+sig·Keygen·Sign·Verify·Assurance)
+│       └── SuiLens.svelte        # Sui on-chain lens: 8-column measured table (Scheme·Std·NIST·pk+sig·Keygen·Sign·Verify·Assurance)
 └── routes/
     ├── +layout.svelte    # nav (Mysten branding, History link, dark toggle), footer
     ├── +page.ts          # load: processYamlSchemes('round-3', {useLatestVersion:true}), createFilterStore
@@ -342,9 +342,12 @@ Two gotchas worth knowing before editing it:
 
 ### Sui On-Chain Lens
 
-`SuiLens.svelte` on the main page — a deliberately minimal decision table, seven
-columns: **Scheme · Std · pk+sig (B) · Keygen (browser) · Sign (browser) ·
-Verify (server) · Assurance**. It shows only the FIPS-track schemes we have
+`SuiLens.svelte` on the main page — a deliberately minimal decision table, eight
+columns: **Scheme · Std · NIST · pk+sig (B) · Keygen (browser) · Sign (browser) ·
+Verify (server) · Assurance**. NIST is the security category (1–5, or N/A for
+Ed25519), from the static `MEASURED_LEVEL` map — a fixed property of each set,
+not derived from the zoo YAML (which lacks the SHA2 SLH-DSA sets and keys Falcon
+by `512`/`1024`). It shows only the FIPS-track schemes we have
 measured through fastcrypto; the on-ramp candidates live in the full zoo table
 below, not here. Column order follows the signature lifecycle (keygen → sign →
 verify), and the header labels say plainly where each op runs: Keygen/Sign are

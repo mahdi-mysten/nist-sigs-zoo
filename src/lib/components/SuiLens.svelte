@@ -68,6 +68,23 @@
 		return schemes.find((s) => s.scheme === mapped);
 	}
 
+	// NIST post-quantum security category per measured parameter set — a fixed
+	// property of each set. Kept as a static map rather than derived from the zoo
+	// YAML because that lists SLH-DSA's SHAKE sets only (not the SHA2 rows we show
+	// here) and keys Falcon by '512'/'1024' rather than the FN-DSA-* names.
+	const MEASURED_LEVEL: Record<string, number | 'N/A'> = {
+		Ed25519: 'N/A',
+		'FN-DSA-512': 1,
+		'FN-DSA-1024': 5,
+		'ML-DSA-44': 2,
+		'ML-DSA-65': 3,
+		'ML-DSA-87': 5,
+		'SLH-DSA-SHAKE-128s': 1,
+		'SLH-DSA-SHAKE-128f': 1,
+		'SLH-DSA-SHA2-128s': 1,
+		'SLH-DSA-SHA2-128f': 1,
+	};
+
 	function fmtRatio(r: number): string {
 		return r.toFixed(1) + '×';
 	}
@@ -123,7 +140,7 @@
      hover, plus a muted "unaudited" where no independent audit exists yet. -->
 {#snippet assuranceCell(name: string)}
 	{@const a = suiAssuranceFor(name)}
-	<td class="whitespace-nowrap px-3 py-1.5">
+	<td class="whitespace-nowrap px-2 py-1.5">
 		{#if a}
 			<span
 				class="cursor-help rounded px-1.5 py-0.5 text-xs font-medium {TIER_CLASS[a.tier]}"
@@ -157,11 +174,12 @@
 				<tr class="bg-pqs-steel font-heading text-xs text-white">
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Scheme</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Std</th>
+					<th scope="col" class="whitespace-nowrap px-2 py-2.5 text-right font-semibold" title="NIST post-quantum security category (1–5; higher is stronger). N/A = pre-quantum classical scheme.">NIST</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold">pk+sig (B)</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold" title="Wallet-side: measured in TypeScript, browser/mobile runtime">Keygen (browser)</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold" title="Wallet-side: measured in TypeScript, browser/mobile runtime">Sign (browser)</th>
 					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-right font-semibold" title="Validator-side: measured in Rust, the fastcrypto stack a validator runs">Verify (server)</th>
-					<th scope="col" class="whitespace-nowrap px-3 py-2.5 text-left font-semibold">Assurance</th>
+					<th scope="col" class="whitespace-nowrap px-2 py-2.5 text-left font-semibold">Assurance</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y divide-pqs-ashgray bg-white dark:divide-pqs-steel dark:bg-pqs-midnight-mid">
@@ -171,6 +189,7 @@
 					{@const avgOver = mysten?.impls.length ?? 0}
 					{@const ts = row.ts}
 					{@const pkSigRatio = mysten && ed25519PkPlusSig ? (mysten.pkLen + mysten.sigLen) / ed25519PkPlusSig : null}
+					{@const level = MEASURED_LEVEL[row.scheme]}
 					{@const isPick = row.scheme === SUI_PICK.parameterset}
 					<tr
 						class={isPick
@@ -206,6 +225,10 @@
 						</td>
 						<!-- Std -->
 						{@render stdCell(zooScheme)}
+						<!-- NIST security level -->
+						<td class="px-2 py-1.5 text-right tabular-nums text-pqs-steel dark:text-pqs-bluegray">
+							{level ?? '—'}
+						</td>
 						<!-- pk+sig -->
 						<td class="px-3 py-1.5 text-right tabular-nums {mysten ? sizeCellClass(mysten.pkLen + mysten.sigLen) : ''}">
 							{mysten ? fmt(mysten.pkLen + mysten.sigLen) : '—'}{@render ratioSuffix(pkSigRatio)}

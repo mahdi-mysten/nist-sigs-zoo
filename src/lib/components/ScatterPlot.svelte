@@ -215,12 +215,17 @@
 				},
 				{
 					transform: [{ filter: 'datum.isPick' }],
+					// Anchor the label below-right of the pick. ML-DSA's three sets sit on
+					// a diagonal running up-right (44 → 65 → 87), so both diagonal
+					// directions hit a star (up-right → 87, down-left → 44). Down-right is
+					// perpendicular to that line and opens onto the plot's empty
+					// high-pk region.
 					mark: {
 						type: 'text',
 						align: 'left',
-						baseline: 'middle',
-						dx: 18,
-						dy: -14,
+						baseline: 'top',
+						dx: 12,
+						dy: 12,
 						fontSize: 11,
 						fontWeight: 'bold'
 					},

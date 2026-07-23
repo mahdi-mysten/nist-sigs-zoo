@@ -249,5 +249,5 @@
 <div bind:this={container} class="w-full"></div>
 <p class="mt-1 text-xs text-pqs-steel/70 dark:text-pqs-bluegray/70">
 	Bottom-left is best: cheap to sign in a wallet, small on chain. Our own measurements for the
-	{points.length} benched candidates — unlike the chart below, this one isn't filtered by the sidebar.
+	{points.length} benched candidates.
 </p>

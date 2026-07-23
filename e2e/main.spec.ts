@@ -125,12 +125,22 @@ test.describe('Sui on-chain lens', () => {
 		await expect(lens.getByText('SQIsign', { exact: true })).toHaveCount(0);
 	});
 
-	test('lens table is sorted Keygen, Sign, Verify — no standalone vs-Ed25519 column', async ({ page }) => {
+	test('lens table has the NIST level column and is sorted Keygen, Sign, Verify — no standalone vs-Ed25519 column', async ({ page }) => {
 		await page.goto('/');
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		await expect(lens.locator('table thead th')).toHaveText([
-			'Scheme', 'Std', 'pk+sig (B)', 'Keygen (browser)', 'Sign (browser)', 'Verify (server)', 'Assurance',
+			'Scheme', 'Std', 'NIST', 'pk+sig (B)', 'Keygen (browser)', 'Sign (browser)', 'Verify (server)', 'Assurance',
 		]);
+	});
+
+	test('NIST level column shows each parameter set’s security category', async ({ page }) => {
+		await page.goto('/');
+		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
+		// NIST is the 3rd column (after Scheme, Std)
+		await expect(lens.locator('tr', { hasText: 'Ed25519' }).locator('td:nth-child(3)')).toHaveText('N/A');
+		await expect(lens.locator('tr', { hasText: 'ML-DSA-65' }).locator('td:nth-child(3)')).toHaveText('3');
+		await expect(lens.locator('tr', { hasText: 'ML-DSA-87' }).locator('td:nth-child(3)')).toHaveText('5');
+		await expect(lens.locator('tr', { hasText: 'SLH-DSA-SHAKE-128s' }).locator('td:nth-child(3)')).toHaveText('1');
 	});
 
 	test('Keygen/Sign columns render TypeScript-measured times for every row', async ({ page }) => {
@@ -138,8 +148,8 @@ test.describe('Sui on-chain lens', () => {
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		// 10 measured rows; no row should be left showing the "no data" dash
 		await expect(lens.locator('table tbody tr')).toHaveCount(10);
-		const keygenCells = lens.locator('table tbody tr td:nth-child(4)');
-		const signCells = lens.locator('table tbody tr td:nth-child(5)');
+		const keygenCells = lens.locator('table tbody tr td:nth-child(5)');
+		const signCells = lens.locator('table tbody tr td:nth-child(6)');
 		await expect(keygenCells).toHaveCount(10);
 		await expect(signCells).toHaveCount(10);
 		for (let i = 0; i < 10; i++) {
@@ -156,12 +166,12 @@ test.describe('Sui on-chain lens', () => {
 		const lens = page.locator('section', { hasText: 'Sui on-chain lens' }).first();
 		const edRow = lens.locator('tr', { hasText: 'Ed25519' });
 		// Ed25519 is its own baseline in all three columns: keygen, sign, verify
-		await expect(edRow.locator('td:nth-child(4)')).toContainText('(1.0×)');
 		await expect(edRow.locator('td:nth-child(5)')).toContainText('(1.0×)');
 		await expect(edRow.locator('td:nth-child(6)')).toContainText('(1.0×)');
+		await expect(edRow.locator('td:nth-child(7)')).toContainText('(1.0×)');
 		// A slow PQ scheme shows a ratio far above 1×
 		const slhRow = lens.locator('tr', { hasText: 'SLH-DSA-SHAKE-128s' });
-		await expect(slhRow.locator('td:nth-child(5)')).not.toContainText('(1.0×)');
+		await expect(slhRow.locator('td:nth-child(6)')).not.toContainText('(1.0×)');
 	});
 
 	test('SLH-DSA-SHAKE-128s and SHA2-128s keygen/sign use scheme-specific reduced iteration counts', async ({ page }) => {
@@ -187,7 +197,7 @@ test.describe('Sui on-chain lens', () => {
 		await page.waitForFunction(
 			() =>
 				[...document.querySelectorAll('svg text')].some((t) =>
-					t.textContent?.includes('Our pick · ML-DSA-65')
+					t.textContent?.includes('Our pick, ML-DSA-65')
 				),
 			{ timeout: 15_000 }
 		);
