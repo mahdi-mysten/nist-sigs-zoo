@@ -24,7 +24,7 @@ function createThemeStore() {
 			apply(theme);
 		},
 		toggle() {
-			// cycle: system → light → dark → system
+			// cycle: system -> light -> dark -> system
 			let current: Theme = 'system';
 			const unsub = subscribe((v) => { current = v; });
 			unsub();

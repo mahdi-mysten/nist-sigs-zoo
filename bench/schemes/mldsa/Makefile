@@ -38,7 +38,7 @@ MODE2_OBJS = $(addprefix $(BUILD)/mode2/, $(ALL_SRCS:.S=.o))
 MODE3_OBJS = $(addprefix $(BUILD)/mode3/, $(ALL_SRCS:.S=.o))
 MODE5_OBJS = $(addprefix $(BUILD)/mode5/, $(ALL_SRCS:.S=.o))
 
-# .c → .o substitution (pattern above handles both .c and .S)
+# .c -> .o substitution (pattern above handles both .c and .S)
 MODE2_OBJS := $(MODE2_OBJS:.c=.o)
 MODE3_OBJS := $(MODE3_OBJS:.c=.o)
 MODE5_OBJS := $(MODE5_OBJS:.c=.o)

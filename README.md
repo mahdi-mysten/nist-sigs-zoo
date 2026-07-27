@@ -38,7 +38,7 @@ post-quantum signature scheme should back a Sui PQ authenticator?** Concretely:
 ```sh
 npm install
 npm run dev       # dev server at http://localhost:5173
-npm run build     # production build → dist/
+npm run build     # production build -> dist/
 npm run preview   # preview dist/ at http://localhost:4173
 npm run check     # type-check
 ```

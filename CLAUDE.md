@@ -13,11 +13,11 @@ below it — scatter + sortable table + filters — is the exploration view show
 parameter set at every NIST level. The upstream round selector is removed; the dataset
 is pinned to the round-3 survivors at their latest specs.
 Built with SvelteKit (adapter-static) + Tailwind CSS v4 + TypeScript.
-Deploy: `npm run build` → `dist/`.
+Deploy: `npm run build` -> `dist/`.
 
 ## Stack
 
-- **Framework**: SvelteKit 2 + Svelte 5 (runes mode), adapter-static → `dist/`
+- **Framework**: SvelteKit 2 + Svelte 5 (runes mode), adapter-static -> `dist/`
 - **CSS**: Tailwind CSS v4 via `@tailwindcss/vite`
 - **Charts**: Vega-Lite (zoo scatter on the main + advanced pages)
 - **Language**: TypeScript throughout
@@ -242,13 +242,13 @@ src/
 │   ├── format.ts         # shared cell formatters (fmt, fmtCycles, fmtTime)
 │   ├── trafficLight.ts   # size/timing bucket thresholds + Tailwind cell classes (unit-tested)
 │   ├── mystenBench.ts    # pq-sig-bench CSV parser + per-scheme impl averaging (pure)
-│   ├── mystenBenchData.ts# import.meta.glob ?raw loader → mystenBench
+│   ├── mystenBenchData.ts# import.meta.glob ?raw loader -> mystenBench
 │   ├── tsBench.ts        # ts-bench.ts CSV parser (pure)
-│   ├── tsBenchData.ts    # import.meta.glob ?raw loader → tsBench
+│   ├── tsBenchData.ts    # import.meta.glob ?raw loader -> tsBench
 │   ├── suiNotes.ts       # per-scheme implementation-assurance badges for the lens
 │   ├── filterStore.ts    # Svelte writable store + derived filteredRows + URL codec
-│   ├── schemeData.ts     # import.meta.glob loader → allSchemeData: SchemeYaml[]
-│   ├── themeStore.ts     # dark/light/system theme store → localStorage
+│   ├── schemeData.ts     # import.meta.glob loader -> allSchemeData: SchemeYaml[]
+│   ├── themeStore.ts     # dark/light/system theme store -> localStorage
 │   ├── yaml.d.ts         # TypeScript module declaration for *.yaml imports
 │   └── components/
 │       ├── SecurityBadge.svelte  # broken/warning/info badges with aria-labels
@@ -271,7 +271,7 @@ src/
 
 scripts/
 ├── import-mysten-bench.js  # npm run import-bench -- <csv>; header/row validation
-└── ts-bench.ts              # node scripts/ts-bench.ts; keygen/sign benchmark → ts-bench.csv
+└── ts-bench.ts              # node scripts/ts-bench.ts; keygen/sign benchmark -> ts-bench.csv
 
 tests/
 ├── src/lib/__tests__/   # Vitest unit tests (vitest.config.ts)
@@ -349,7 +349,7 @@ Ed25519), from the static `MEASURED_LEVEL` map — a fixed property of each set,
 not derived from the zoo YAML (which lacks the SHA2 SLH-DSA sets and keys Falcon
 by `512`/`1024`). It shows only the FIPS-track schemes we have
 measured through fastcrypto; the on-ramp candidates live in the full zoo table
-below, not here. Column order follows the signature lifecycle (keygen → sign →
+below, not here. Column order follows the signature lifecycle (keygen -> sign ->
 verify), and the header labels say plainly where each op runs: Keygen/Sign are
 wallet-side (TypeScript, browser/mobile — see the `ts-bench.csv` section above),
 Verify is validator-side (Rust, the server). These are two independent
@@ -379,8 +379,9 @@ static, not a noisy measurement, so there's nothing for a harness to own.
   ~2× amortized; no PQ scheme batches — the practical on-chain gap is about 2×
   the Verify column's ratio).
 - Std chips name the concrete standard: "FIPS 204"/"FIPS 205" from the picked
-  version's label (`fipsChipLabel` in `$lib/format`), and "FIPS 206 pending" for
-  Falcon via `PENDING_FIPS` in `$lib/constants` (same in `SchemeTable`).
+  version's label (`fipsChipLabel` in `$lib/format`), and "FIPS 206" for Falcon
+  via `PENDING_FIPS` in `$lib/constants` (its draft-not-yet-published status is in
+  the chip's hover tooltip, not the visible text; same in `SchemeTable`).
 - The **Assurance** column (`src/lib/suiNotes.ts`) is the practical "can we trust
   the code" axis: one colored pill per scheme — green (`strong`: audited / formally
   verified) or amber (`mid`: correctness-gated but unaudited, or not the
@@ -419,7 +420,7 @@ Extrapolated values shown with wavy red underline (`decoration-wavy decoration-r
 ## Deploy
 
 GitHub Actions workflow at `.github/workflows/deploy.yml`:
-1. `npm ci && npm run build` → `dist/`
+1. `npm ci && npm run build` -> `dist/`
 2. Copy `round-1/` into `dist/round-1/` (untouched static snapshot)
 3. Copy `.nojekyll` into `dist/`
 4. Deploy `dist/` to GitHub Pages

@@ -19,7 +19,7 @@ make
 ./bench rsa ecdsa        # multiple filters are OR-ed
 
 # Save results with system info header
-./run_bench.sh           # all schemes → results/<timestamp>_<cpu>.txt
+./run_bench.sh           # all schemes -> results/<timestamp>_<cpu>.txt
 ./run_bench.sh sqisign   # filtered; slug appended to filename
 ```
 

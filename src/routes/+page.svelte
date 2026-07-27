@@ -103,7 +103,7 @@
 				<ScatterPlot />
 				<div class="mt-2 flex justify-end">
 					<a href="{base}/advanced/" class="text-xs text-pqs-bluegray hover:text-pqs-apricot dark:text-pqs-steel dark:hover:text-pqs-apricot transition-colors">
-						Advanced graph →
+						Advanced graph ->
 					</a>
 				</div>
 			</section>

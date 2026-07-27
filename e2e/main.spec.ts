@@ -51,19 +51,19 @@ test.describe('Main page', () => {
 		await expect(page.locator('section h2', { hasText: 'pk size vs. sig size' })).toBeVisible();
 	});
 
-	test('"Advanced graph →" link is present and points to /advanced/', async ({ page }) => {
+	test('"Advanced graph ->" link is present and points to /advanced/', async ({ page }) => {
 		await page.goto('/');
-		const link = page.getByRole('link', { name: 'Advanced graph →' });
+		const link = page.getByRole('link', { name: 'Advanced graph ->' });
 		await expect(link).toBeVisible();
 		await expect(link).toHaveAttribute('href', /advanced/);
 	});
 
-	test('navigating "Advanced graph →" lands on advanced page', async ({ page }) => {
+	test('navigating "Advanced graph ->" lands on advanced page', async ({ page }) => {
 		await page.goto('/');
 		// Wait for hydration (dynamic chunks settle) so the click is an SPA
 		// navigation, not a full reload that can time out under load.
 		await page.waitForLoadState('networkidle');
-		await page.getByRole('link', { name: 'Advanced graph →' }).click();
+		await page.getByRole('link', { name: 'Advanced graph ->' }).click();
 		await expect(page.locator('h1')).toHaveText('Advanced Graph', { timeout: 15_000 });
 	});
 
@@ -258,7 +258,9 @@ test.describe('Sui on-chain lens', () => {
 		// Multiple rows share a standard (3 ML-DSA levels, 2 Falcon sizes) — .first() is enough
 		await expect(lens.getByText('FIPS 204', { exact: true }).first()).toBeVisible();
 		await expect(lens.getByText('FIPS 205', { exact: true }).first()).toBeVisible();
-		await expect(lens.getByText('FIPS 206 pending', { exact: true }).first()).toBeVisible();
+		// Falcon's forthcoming standard is now shown without a "pending" suffix.
+		await expect(lens.getByText('FIPS 206', { exact: true }).first()).toBeVisible();
+		await expect(lens.getByText('FIPS 206 pending', { exact: true })).toHaveCount(0);
 	});
 
 	test('no pending/placeholder state — every measured row has a real verify value', async ({ page }) => {

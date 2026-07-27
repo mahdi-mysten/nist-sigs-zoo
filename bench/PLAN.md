@@ -231,7 +231,7 @@ Makefile rules (must follow these conventions exactly):
 1. `all:` must be the **first** explicit target in every sub-Makefile so that
    `$(MAKE) -C schemes/<name>` without an explicit goal builds everything.
 2. Shim generation rule: `$(SHIM_FILES): shim_template.c params.tsv`
-   → `python3 ../../gen_shims.py shim_template.c params.tsv .`
+   -> `python3 ../../gen_shims.py shim_template.c params.tsv .`
 3. Add `rm -f $(SHIM_FILES)` to the `clean:` rule.
 
 Parent `bench/Makefile` uses per-scheme stamp files (`schemes/<name>/.stamp`)

@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).parent.parent
 SCHEMES_DIR = REPO_ROOT / "data" / "schemes"
 BENCH_ENV_FILE = REPO_ROOT / "data" / "benchmark_env.yaml"
 
-# Map bench output name → (yaml_filename, parameterset_name_in_yaml)
+# Map bench output name -> (yaml_filename, parameterset_name_in_yaml)
 # Only entries where the bench measurement corresponds to the YAML parameterset.
 BENCH_TO_YAML: dict[str, tuple[str, str]] = {
     # ML-DSA (FIPS 204)
@@ -110,7 +110,7 @@ BENCH_TO_YAML: dict[str, tuple[str, str]] = {
     "QR-UOV-V-(31,324,114,3)": ("QR-UOV.yaml", "V-(31 324 114 3)"),
     "QR-UOV-V-(31,1120,120,10)": ("QR-UOV.yaml", "V-(31 1120 120 10)"),
     "QR-UOV-V-(7,1490,190,10)": ("QR-UOV.yaml", "V-(7 1490 190 10)"),
-    # MQOM — bench r3/r5 suffix → YAML 3r/5r
+    # MQOM — bench r3/r5 suffix -> YAML 3r/5r
     "MQOM2-L1-gf2-fast-r3": ("MQOM.yaml", "L1-gf2-fast-3r"),
     "MQOM2-L1-gf2-fast-r5": ("MQOM.yaml", "L1-gf2-fast-5r"),
     "MQOM2-L1-gf2-short-r3": ("MQOM.yaml", "L1-gf2-short-3r"),

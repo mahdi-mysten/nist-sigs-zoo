@@ -20,7 +20,7 @@ export function fmtTime(us: number): string {
 }
 
 // Chip text for FIPS-status rows: surface the concrete standard number when the
-// selected version label carries one ("FIPS 204" → "FIPS 204"), else plain "FIPS".
+// selected version label carries one ("FIPS 204" -> "FIPS 204"), else plain "FIPS".
 export function fipsChipLabel(version: string): string {
 	const m = /^FIPS\s*\d+/.exec(version);
 	return m ? m[0] : 'FIPS';

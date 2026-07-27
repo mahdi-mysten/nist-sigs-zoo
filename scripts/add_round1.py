@@ -70,7 +70,7 @@ R1_VERSION = {
 # Not additional-signature submissions — skip entirely
 SKIP = {"EdDSA", "RSA", "Falcon", "ML-DSA (Dilithium)", "SLH-DSA (SPHINCS+)"}
 
-# CSV name → YAML scheme name (for schemes that changed name round-1→round-2)
+# CSV name -> YAML scheme name (for schemes that changed name round-1->round-2)
 CSV_TO_YAML_NAME = {
     "QR-UOV": "QR-UOV",  # same, just confirming
 }

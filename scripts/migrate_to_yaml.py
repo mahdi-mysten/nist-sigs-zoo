@@ -2,7 +2,7 @@
 # /// script
 # dependencies = ["pyyaml"]
 # ///
-"""Migrate static/data/{schemes,parametersets}.csv → data/schemes/*.yaml"""
+"""Migrate static/data/{schemes,parametersets}.csv -> data/schemes/*.yaml"""
 
 import csv
 import yaml

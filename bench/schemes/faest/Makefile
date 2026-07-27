@@ -75,7 +75,7 @@ $(MESON_BUILD)/.built: $(REF)/meson.build | $(MESON_BUILD)
 $(RANDOMNESS): $(REF)/randomness_os.c | $(BUILD)
 	$(CC) $(CFLAGS) $(IFLAGS) -c $< -o $@
 
-# Compile the C shim separately (void* → typed ptr is valid C but not C++)
+# Compile the C shim separately (void* -> typed ptr is valid C but not C++)
 $(BUILD)/%_shim.o: %_shim.c $(GEN)/%_api.h | $(BUILD)
 	$(CC) $(CFLAGS) $(IFLAGS) -c $< -o $@
 

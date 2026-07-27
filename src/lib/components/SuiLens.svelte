@@ -106,14 +106,18 @@
 </script>
 
 <!-- Std chip: names the concrete standard ("FIPS 204") from the version label, or
-     the pending FIPS number (Falcon → "FIPS 206 pending") from PENDING_FIPS. -->
+     the forthcoming FIPS number (Falcon -> "FIPS 206") from PENDING_FIPS. The
+     draft status lives in the hover tooltip rather than the chip text. -->
 {#snippet stdCell(scheme: Scheme | undefined)}
 	<td class="whitespace-nowrap px-3 py-1.5">
 		{#if scheme?.status === 'FIPS'}
 			<span class="rounded bg-pqs-apricot/20 px-1.5 py-0.5 text-xs font-semibold text-pqs-apricot">{fipsChipLabel(scheme.version)}</span>
 		{:else if scheme?.status === 'To be standardized'}
-			<span class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray">
-				{PENDING_FIPS[scheme.scheme] ? `${PENDING_FIPS[scheme.scheme]} pending` : 'Std pending'}
+			<span
+				class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray"
+				title={PENDING_FIPS[scheme.scheme] ? `${PENDING_FIPS[scheme.scheme]} is the forthcoming standard for this scheme; the draft is not yet published.` : undefined}
+			>
+				{PENDING_FIPS[scheme.scheme] ?? 'Std pending'}
 			</span>
 		{:else if scheme?.status === 'Classic cryptography'}
 			<span class="text-pqs-steel/70 dark:text-pqs-bluegray/70">Classic</span>
@@ -229,9 +233,18 @@
 						<td class="px-2 py-1.5 text-right tabular-nums text-pqs-steel dark:text-pqs-bluegray">
 							{level ?? '—'}
 						</td>
-						<!-- pk+sig -->
-						<td class="px-3 py-1.5 text-right tabular-nums {mysten ? sizeCellClass(mysten.pkLen + mysten.sigLen) : ''}">
-							{mysten ? fmt(mysten.pkLen + mysten.sigLen) : '—'}{@render ratioSuffix(pkSigRatio)}
+						<!-- pk+sig: total (with vs-Ed25519 ratio) over the pk/sig split. The
+						     split matters because the public key may be cacheable on-chain in
+						     future (stored once), while the signature is always per-transaction. -->
+						<td class="px-3 py-1.5 text-right {mysten ? sizeCellClass(mysten.pkLen + mysten.sigLen) : ''}">
+							{#if mysten}
+								<div class="tabular-nums">{fmt(mysten.pkLen + mysten.sigLen)}{@render ratioSuffix(pkSigRatio)}</div>
+								<div class="whitespace-nowrap text-[11px] tabular-nums text-pqs-steel/70 dark:text-pqs-bluegray/70">
+									(pk {fmt(mysten.pkLen)} + sig {fmt(mysten.sigLen)})
+								</div>
+							{:else}
+								—
+							{/if}
 						</td>
 						<!-- Keygen (browser: TypeScript via @mysten/sui / @noble/post-quantum) -->
 						<td

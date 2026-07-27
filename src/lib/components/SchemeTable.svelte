@@ -91,8 +91,11 @@
 						{#if row.status === 'FIPS'}
 							<span class="rounded bg-pqs-apricot/20 px-1.5 py-0.5 text-xs font-semibold text-pqs-apricot">{fipsChipLabel(row.version)}</span>
 						{:else if row.status === 'To be standardized'}
-							<span class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray">
-								{PENDING_FIPS[row.scheme] ? `${PENDING_FIPS[row.scheme]} pending` : 'Std pending'}
+							<span
+								class="rounded bg-pqs-steel/10 px-1.5 py-0.5 text-xs font-semibold text-pqs-steel dark:text-pqs-bluegray"
+								title={PENDING_FIPS[row.scheme] ? `${PENDING_FIPS[row.scheme]} is the forthcoming standard for this scheme; the draft is not yet published.` : undefined}
+							>
+								{PENDING_FIPS[row.scheme] ?? 'Std pending'}
 							</span>
 						{:else if row.status === 'Classic cryptography'}
 							<span class="text-pqs-steel/70 dark:text-pqs-bluegray/70">Classic</span>
@@ -172,7 +175,7 @@
 		<span class="ml-2">·</span>
 		<span class="ml-2"><span class="underline decoration-wavy decoration-pqs-scarlet">value</span> estimated from cycle counts</span>
 		<span class="ml-2">·</span>
-		<span class="ml-2">cell shading: <span class="rounded bg-green-200/70 px-1 dark:bg-green-500/25">light</span> → <span class="rounded bg-red-200/80 px-1 dark:bg-red-500/25">heavy</span> vs the Ed25519 baseline</span>
+		<span class="ml-2">cell shading: <span class="rounded bg-green-200/70 px-1 dark:bg-green-500/25">light</span> -> <span class="rounded bg-red-200/80 px-1 dark:bg-red-500/25">heavy</span> vs the Ed25519 baseline</span>
 		<span class="ml-2">· tap icons for details</span>
 	</div>
 </div>

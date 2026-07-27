@@ -113,7 +113,7 @@ The shim adapts upstream API conventions to the bench contract. Common issues:
   functions directly instead (e.g. MQOM's `Sign`/`Verify_default`).
 - **Old NIST combined API** (`crypto_sign`/`crypto_sign_open` where sm = sig ‖ m): wrap as:
   ```c
-  // sign: call crypto_sign, copy first CRYPTO_BYTES from sm → sig
+  // sign: call crypto_sign, copy first CRYPTO_BYTES from sm -> sig
   // verify: reconstruct sm = sig ‖ m, call crypto_sign_open
   ```
   Use `malloc` for the temporary sm buffer (size = CRYPTO_BYTES + msglen).
@@ -163,7 +163,7 @@ Generated shim files are not committed — each scheme dir has a `.gitignore` wi
    - `.gitignore` containing `*_shim.c`.
    - `Makefile` — **`all:` must be the first explicit target** (add `.DEFAULT_GOAL := all`
      if `$(eval $(call ...))` blocks appear before it). Add shim generation rule:
-     `$(SHIM_FILES): shim_template.c params.tsv` → `python3 ../../gen_shims.py …`.
+     `$(SHIM_FILES): shim_template.c params.tsv` -> `python3 ../../gen_shims.py …`.
      Compile upstream sources to `build/lib<name>.a` with `-fPIC`; compile+link
      each shim into `build/<file>.so`.
 

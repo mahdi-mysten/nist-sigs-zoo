@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: run_bench.sh [filter...]
 #   Filters are case-insensitive substrings matched against scheme names.
-#   Multiple filters are OR-ed: run_bench.sh rsa ecdsa  →  RSA + ECDSA only.
-#   No filters → run all schemes.
+#   Multiple filters are OR-ed: run_bench.sh rsa ecdsa  ->  RSA + ECDSA only.
+#   No filters -> run all schemes.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -62,7 +62,7 @@ for src_file in "$SCRIPT_DIR"/schemes/*/.source; do
     SUBMODULE_INFO="${SUBMODULE_INFO}#   ${scheme_path}: ${url}"$'\n'
 done
 
-# slug for filename: lowercase model, spaces/special chars → underscore
+# slug for filename: lowercase model, spaces/special chars -> underscore
 CPU_SLUG=$(echo "$CPU_MODEL" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/__*/_/g' | sed 's/_$//')
 TIMESTAMP=$(date -u +"%Y%m%dT%H%M%SZ")
 RESULTS_DIR="$SCRIPT_DIR/results"
